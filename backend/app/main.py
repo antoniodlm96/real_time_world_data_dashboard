@@ -10,7 +10,7 @@ from backend.app.config import settings
 from backend.app.database import init_db, seed_radio_frequencies, seed_webcams
 from backend.app.ingest import ingestion_loop
 from backend.app.sources.bluesky import bluesky_loop
-from backend.app.routers import events, markets, webcams, news, radio, flights, fires, commodities
+from backend.app.routers import events, markets, webcams, news, radio, flights, fires, commodities, weather
 from backend.app.sources.radio_frequencies_seed import RADIO_FREQUENCIES
 from backend.app.sources.webcams_seed import SEED_WEBCAMS
 
@@ -65,6 +65,7 @@ app.include_router(radio.router, prefix=settings.api_prefix)
 app.include_router(flights.router, prefix=settings.api_prefix)
 app.include_router(fires.router, prefix=settings.api_prefix)
 app.include_router(commodities.router, prefix=settings.api_prefix)
+app.include_router(weather.router, prefix=settings.api_prefix)
 
 
 @app.get(f"{settings.api_prefix}/health")

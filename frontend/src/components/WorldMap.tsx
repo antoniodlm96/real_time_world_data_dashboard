@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import type { UnifiedEvent, LayerKey, Webcam, RadioStation, Flight, Fire } from '../types'
+import type { UnifiedEvent, LayerKey, Webcam, RadioStation, Flight, Fire, WeatherEntry } from '../types'
 
 const categoryColors: Record<string, string> = {
   disaster: '#ff2222',
@@ -67,6 +67,7 @@ const RADIO_ICON = markerSvg('M3.24 6.15C2.46 5.64 2 4.86 2 4c0-1.1.9-2 2-2s2 .9
 const FLIGHT_ICON = markerSvg('M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z', '#a78bfa')
 
 const FIRE_ICON = markerSvg('M12 2C9.5 5.5 6 9 6 13c0 3.3 2.7 6 6 6s6-2.7 6-6c0-4-3.5-7.5-6-11z', '#ff6600')
+const WEATHER_ICON = markerSvg('M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z', '#60a5fa')
 
 interface WorldMapProps {
   events: UnifiedEvent[]
@@ -75,6 +76,7 @@ interface WorldMapProps {
   radioStations?: RadioStation[]
   flights?: Flight[]
   fires?: Fire[]
+  weather?: WeatherEntry[]
 }
 
 function EventMarkers({ events, activeLayers }: { events: UnifiedEvent[]; activeLayers: Set<LayerKey> }) {
@@ -217,7 +219,37 @@ function FireMarkers({ fires, visible }: { fires: Fire[]; visible: boolean }) {
   )
 }
 
-export default function WorldMap({ events, activeLayers, webcams = [], radioStations = [], flights = [], fires = [] }: WorldMapProps) {
+function WeatherMarkers({ weather, visible }: { weather: WeatherEntry[]; visible: boolean }) {
+  if (!visible) return null
+  return (
+    <>
+      {weather.map(w => (
+        <Marker key={`${w.lat}-${w.lng}`} position={[w.lat, w.lng]} icon={layerIcon(WEATHER_ICON)}>
+          <Popup>
+            <div className="text-sm max-w-[200px]">
+              <strong className="text-gray-900">{w.city}, {w.country}</strong>
+              <p className="text-lg font-bold text-gray-100 mt-1">
+                {w.weather_icon} {w.temperature}°C
+              </p>
+              <p className="text-gray-500 text-xs">{w.weather_description}</p>
+              <p className="text-gray-500 text-xs mt-1">
+                Feels like: {w.apparent_temperature}°C · Humidity: {w.humidity}%
+              </p>
+              <p className="text-gray-500 text-xs">
+                Wind: {w.wind_speed} km/h · Pressure: {w.pressure} hPa
+              </p>
+              {w.severe && (
+                <p className="text-red-400 text-xs font-bold mt-1">⚠ Severe weather alert</p>
+              )}
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  )
+}
+
+export default function WorldMap({ events, activeLayers, webcams = [], radioStations = [], flights = [], fires = [], weather = [] }: WorldMapProps) {
   return (
     <MapContainer
       center={[20, 0]}
@@ -234,6 +266,7 @@ export default function WorldMap({ events, activeLayers, webcams = [], radioStat
       <RadioMarkers stations={radioStations} visible={activeLayers.has('radio')} />
       <FlightMarkers flights={flights} visible={activeLayers.has('flights')} />
       <FireMarkers fires={fires} visible={activeLayers.has('fires')} />
+      <WeatherMarkers weather={weather} visible={activeLayers.has('weather')} />
     </MapContainer>
   )
 }

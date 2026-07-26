@@ -129,6 +129,88 @@ async def init_db():
             CREATE INDEX IF NOT EXISTS idx_radio_country ON radio_stations(country);
             CREATE INDEX IF NOT EXISTS idx_radio_name ON radio_stations(name);
             CREATE INDEX IF NOT EXISTS idx_radio_online ON radio_stations(is_online);
+
+            CREATE TABLE IF NOT EXISTS fires (
+                id TEXT PRIMARY KEY,
+                lat REAL NOT NULL,
+                lng REAL NOT NULL,
+                brightness REAL,
+                frp REAL,
+                confidence TEXT,
+                satellite TEXT,
+                acq_date TEXT,
+                acq_time TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                started_at TEXT NOT NULL,
+                ended_at TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_fires_active ON fires(is_active);
+            CREATE INDEX IF NOT EXISTS idx_fires_started ON fires(started_at);
+
+            CREATE TABLE IF NOT EXISTS flights (
+                id TEXT PRIMARY KEY,
+                icao24 TEXT,
+                callsign TEXT,
+                origin_country TEXT,
+                lat REAL NOT NULL,
+                lng REAL NOT NULL,
+                altitude REAL,
+                speed REAL,
+                heading REAL,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                first_seen TEXT NOT NULL,
+                last_seen TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_flights_active ON flights(is_active);
+            CREATE INDEX IF NOT EXISTS idx_flights_lastseen ON flights(last_seen);
+
+            CREATE TABLE IF NOT EXISTS weather_current (
+                city TEXT PRIMARY KEY,
+                country TEXT NOT NULL,
+                lat REAL NOT NULL,
+                lng REAL NOT NULL,
+                temperature REAL,
+                apparent_temperature REAL,
+                humidity REAL,
+                weather_code INTEGER,
+                weather_description TEXT,
+                weather_icon TEXT,
+                wind_speed REAL,
+                wind_gusts REAL,
+                pressure REAL,
+                severe INTEGER NOT NULL DEFAULT 0,
+                forecast TEXT,
+                recorded_at TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS weather_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                city TEXT NOT NULL,
+                country TEXT NOT NULL,
+                lat REAL NOT NULL,
+                lng REAL NOT NULL,
+                temperature REAL,
+                apparent_temperature REAL,
+                humidity REAL,
+                weather_code INTEGER,
+                weather_description TEXT,
+                wind_speed REAL,
+                wind_gusts REAL,
+                pressure REAL,
+                recorded_at TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_weather_city ON weather_history(city);
+            CREATE INDEX IF NOT EXISTS idx_weather_recorded ON weather_history(recorded_at);
         """)
         await db.commit()
 
@@ -652,5 +734,197 @@ async def get_forex_from_db() -> dict | None:
             "date": row["date"],
             "last_updated": row["last_updated"],
         }
+    finally:
+        await db.close()
+
+
+async def upsert_fires(fires: list[dict]):
+    if not fires:
+        return
+    db = await get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        for f in fires:
+            await db.execute(
+                """INSERT INTO fires
+                   (id, lat, lng, brightness, frp, confidence, satellite,
+                    acq_date, acq_time, is_active, started_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET
+                    lat=excluded.lat, lng=excluded.lng,
+                    brightness=excluded.brightness, frp=excluded.frp,
+                    confidence=excluded.confidence, satellite=excluded.satellite,
+                    acq_date=excluded.acq_date, acq_time=excluded.acq_time,
+                    is_active=1, ended_at=NULL, updated_at=excluded.updated_at""",
+                (f["id"], f["lat"], f["lng"], f.get("brightness"), f.get("frp"),
+                 f.get("confidence"), f.get("satellite"), f.get("acq_date"),
+                 f.get("acq_time"), now, now),
+            )
+        await db.commit()
+    finally:
+        await db.close()
+
+
+async def deactivate_old_fires(active_ids: set[str]):
+    db = await get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        await db.execute(
+            "UPDATE fires SET is_active=0, ended_at=?, updated_at=? WHERE is_active=1 AND id NOT IN ({})".format(
+                ",".join("?" for _ in active_ids) if active_ids else "''"
+            ),
+            [now, now] + (list(active_ids) if active_ids else []),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+
+async def get_fires_from_db(active_only: bool = True) -> list[dict]:
+    db = await get_db()
+    try:
+        if active_only:
+            cursor = await db.execute(
+                "SELECT * FROM fires WHERE is_active=1 ORDER BY started_at DESC"
+            )
+        else:
+            cursor = await db.execute(
+                "SELECT * FROM fires ORDER BY started_at DESC LIMIT 1000"
+            )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        await db.close()
+
+
+async def upsert_flights(flights: list[dict]):
+    if not flights:
+        return
+    db = await get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        for f in flights:
+            await db.execute(
+                """INSERT INTO flights
+                   (id, icao24, callsign, origin_country, lat, lng,
+                    altitude, speed, heading, is_active, first_seen, last_seen, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+                   ON CONFLICT(id) DO UPDATE SET
+                    lat=excluded.lat, lng=excluded.lng,
+                    altitude=excluded.altitude, speed=excluded.speed,
+                    heading=excluded.heading, is_active=1,
+                    last_seen=excluded.last_seen, updated_at=excluded.updated_at""",
+                (f["id"], f.get("icao24"), f.get("callsign"), f.get("origin_country"),
+                 f["lat"], f["lng"], f.get("altitude"), f.get("speed"),
+                 f.get("heading"), now, now, now),
+            )
+        await db.commit()
+    finally:
+        await db.close()
+
+
+async def deactivate_old_flights(active_ids: set[str]):
+    db = await get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        await db.execute(
+            "UPDATE flights SET is_active=0, updated_at=? WHERE is_active=1 AND id NOT IN ({})".format(
+                ",".join("?" for _ in active_ids) if active_ids else "''"
+            ),
+            [now] + (list(active_ids) if active_ids else []),
+        )
+        await db.commit()
+    finally:
+        await db.close()
+
+
+async def get_flights_from_db(active_only: bool = True, limit: int = 500) -> list[dict]:
+    db = await get_db()
+    try:
+        if active_only:
+            cursor = await db.execute(
+                "SELECT * FROM flights WHERE is_active=1 ORDER BY last_seen DESC LIMIT ?",
+                (limit,),
+            )
+        else:
+            cursor = await db.execute(
+                "SELECT * FROM flights ORDER BY last_seen DESC LIMIT ?", (limit,)
+            )
+        rows = await cursor.fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        await db.close()
+
+
+async def upsert_weather_current(entries: list[dict]):
+    if not entries:
+        return
+    db = await get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        for e in entries:
+            await db.execute(
+                """INSERT INTO weather_current
+                   (city, country, lat, lng, temperature, apparent_temperature,
+                    humidity, weather_code, weather_description, weather_icon,
+                    wind_speed, wind_gusts, pressure, severe, forecast, recorded_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(city) DO UPDATE SET
+                    temperature=excluded.temperature,
+                    apparent_temperature=excluded.apparent_temperature,
+                    humidity=excluded.humidity,
+                    weather_code=excluded.weather_code,
+                    weather_description=excluded.weather_description,
+                    weather_icon=excluded.weather_icon,
+                    wind_speed=excluded.wind_speed,
+                    wind_gusts=excluded.wind_gusts,
+                    pressure=excluded.pressure,
+                    severe=excluded.severe,
+                    forecast=excluded.forecast,
+                    recorded_at=excluded.recorded_at,
+                    updated_at=excluded.updated_at""",
+                (e["city"], e["country"], e["lat"], e["lng"],
+                 e.get("temperature"), e.get("apparent_temperature"),
+                 e.get("humidity"), e.get("weather_code"),
+                 e.get("weather_description"), e.get("weather_icon"),
+                 e.get("wind_speed"), e.get("wind_gusts"),
+                 e.get("pressure"), 1 if e.get("severe") else 0,
+                 json.dumps(e.get("forecast", [])),
+                 e.get("timestamp", now), now),
+            )
+
+            await db.execute(
+                """INSERT INTO weather_history
+                   (city, country, lat, lng, temperature, apparent_temperature,
+                    humidity, weather_code, weather_description,
+                    wind_speed, wind_gusts, pressure, recorded_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (e["city"], e["country"], e["lat"], e["lng"],
+                 e.get("temperature"), e.get("apparent_temperature"),
+                 e.get("humidity"), e.get("weather_code"),
+                 e.get("weather_description"),
+                 e.get("wind_speed"), e.get("wind_gusts"),
+                 e.get("pressure"), e.get("timestamp", now)),
+            )
+        await db.commit()
+    finally:
+        await db.close()
+
+
+async def get_weather_from_db() -> list[dict]:
+    db = await get_db()
+    try:
+        cursor = await db.execute("SELECT * FROM weather_current ORDER BY city")
+        rows = await cursor.fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            if d.get("forecast"):
+                try:
+                    d["forecast"] = json.loads(d["forecast"])
+                except (json.JSONDecodeError, TypeError):
+                    d["forecast"] = []
+            result.append(d)
+        return result
     finally:
         await db.close()
