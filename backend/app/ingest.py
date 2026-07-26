@@ -11,6 +11,7 @@ from backend.app.sources.news_feeds import fetch_all_news
 from backend.app.sources.webcam_finder import discover_webcams
 from backend.app.sources.radio_discovery import discover_radio_stations
 from backend.app.sources.country_coords import lookup_location
+from backend.app.sources.gdacs import fetch_gdacs_rss
 from backend.app.database import (
     upsert_events,
     upsert_crypto,
@@ -73,6 +74,7 @@ async def ingest_all():
         logger.warning("cleanup failed: %s", e)
 
 
+_gdacs_counter = 0
 _discovery_counter = 0
 _radio_discovery_counter = 0
 
@@ -165,17 +167,23 @@ async def check_webcams():
 
 
 async def ingestion_loop():
-    global _webcam_counter, _classify_counter, _discovery_counter, _radio_discovery_counter
+    global _webcam_counter, _classify_counter, _gdacs_counter, _discovery_counter, _radio_discovery_counter
     while True:
         try:
             await ingest_all()
             _webcam_counter += INGEST_INTERVAL
             _classify_counter += INGEST_INTERVAL
+            _gdacs_counter += INGEST_INTERVAL
             _discovery_counter += INGEST_INTERVAL
             _radio_discovery_counter += INGEST_INTERVAL
             if _classify_counter >= CLASSIFY_INTERVAL:
                 await classify_news()
                 _classify_counter = 0
+            if _gdacs_counter >= 300:
+                gdacs = await fetch_gdacs_rss()
+                if gdacs:
+                    await upsert_events(gdacs)
+                _gdacs_counter = 0
             if _webcam_counter >= WEBCAM_CHECK_INTERVAL:
                 await check_webcams()
                 _webcam_counter = 0

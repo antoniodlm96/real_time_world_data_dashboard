@@ -1,10 +1,22 @@
-import type { LayerKey } from '../types'
-
-const items: { key: LayerKey; label: string; color: string; shape: string }[] = [
+const items: { key: string; label: string; color: string; shape: string }[] = [
   { key: 'disaster', label: 'Disasters', color: '#ff2222', shape: 'circle' },
   { key: 'conflict', label: 'Conflicts', color: '#00eeff', shape: 'diamond' },
   { key: 'cyber', label: 'Cyber Attacks', color: '#ff44ff', shape: 'triangle' },
+  { key: 'webcam', label: 'Webcams', color: '#22d3ee', shape: 'webcam' },
+  { key: 'radio', label: 'Radio', color: '#fbbf24', shape: 'radio' },
+  { key: 'flights', label: 'Flights', color: '#a78bfa', shape: 'flights' },
+  { key: 'fires', label: 'Fires', color: '#ff6600', shape: 'fires' },
 ]
+
+function SvgIcon(path: string, color: string, size = 10) {
+  return (
+    <span className="inline-block" style={{ width: size, height: size }}>
+      <svg viewBox="0 0 24 24" fill={color} width={size} height={size}>
+        <path d={path} />
+      </svg>
+    </span>
+  )
+}
 
 function ShapeIcon({ color, shape }: { color: string; shape: string }) {
   if (shape === 'diamond') {
@@ -33,6 +45,18 @@ function ShapeIcon({ color, shape }: { color: string; shape: string }) {
         }}
       />
     )
+  }
+  if (shape === 'webcam') {
+    return SvgIcon('M12 2C9.2 2 7 4.2 7 7c0 3.5 5 10 5 10s5-6.5 5-10c0-2.8-2.2-5-5-5zm0 7c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z', color)
+  }
+  if (shape === 'radio') {
+    return SvgIcon('M3.24 6.15C2.46 5.64 2 4.86 2 4c0-1.1.9-2 2-2s2 .9 2 2c0 .86-.46 1.64-1.24 2.15M3 2v20M21 2v20M8 6.15C7.46 5.64 7 4.86 7 4c0-1.1.9-2 2-2s2 .9 2 2c0 .86-.46 1.64-1.24 2.15M8 2v20M15 2v20M14 6.15C13.46 5.64 13 4.86 13 4c0-1.1.9-2 2-2s2 .9 2 2c0 .86-.46 1.64-1.24 2.15M15 21c0 1.1.9 2 2 2s2-.9 2-2-.9-2-2-2-2 .9-2 2z', color)
+  }
+  if (shape === 'flights') {
+    return SvgIcon('M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z', color)
+  }
+  if (shape === 'fires') {
+    return SvgIcon('M12 2C9.5 5.5 6 9 6 13c0 3.3 2.7 6 6 6s6-2.7 6-6c0-4-3.5-7.5-6-11z', color)
   }
   return (
     <span

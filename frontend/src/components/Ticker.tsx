@@ -1,22 +1,25 @@
 import { useMemo } from 'react'
 import type { UnifiedEvent, LayerKey } from '../types'
 
-const categoryColors: Record<LayerKey, string> = {
+const categoryColors: Partial<Record<LayerKey, string>> = {
   disaster: 'text-red-400',
   conflict: 'text-cyan-400',
   cyber: 'text-fuchsia-400',
 }
 
+const EVENT_CATS: LayerKey[] = ['disaster', 'conflict', 'cyber']
+
 interface TickerProps {
-  events: Record<LayerKey, UnifiedEvent[]>
+  events: Record<string, UnifiedEvent[]>
 }
 
 export default function Ticker({ events }: TickerProps) {
   const headlines = useMemo(() => {
     const items: { title: string; category: LayerKey }[] = []
-    for (const [cat, list] of Object.entries(events)) {
+    for (const cat of EVENT_CATS) {
+      const list = events[cat] || []
       for (const event of list.slice(0, 10)) {
-        items.push({ title: event.title, category: cat as LayerKey })
+        items.push({ title: event.title, category: cat })
       }
     }
     return items.sort(() => Math.random() - 0.5)
@@ -34,7 +37,7 @@ export default function Ticker({ events }: TickerProps) {
           <div className="animate-marquee whitespace-nowrap flex gap-12" style={{ animation: 'marquee 40s linear infinite' }}>
             {headlines.concat(headlines).map((item, i) => (
               <span key={i} className="inline-flex items-center gap-2 text-sm">
-                <span className={`text-xs font-bold uppercase ${categoryColors[item.category]}`}>
+                <span className={`text-xs font-bold uppercase ${categoryColors[item.category] || 'text-gray-400'}`}>
                   [{item.category}]
                 </span>
                 <span className="text-gray-300">{item.title}</span>

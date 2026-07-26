@@ -9,6 +9,10 @@ export function useEvents(hours: number) {
     disaster: [],
     conflict: [],
     cyber: [],
+    webcam: [],
+    radio: [],
+    flights: [],
+    fires: [],
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -27,6 +31,10 @@ export function useEvents(hours: number) {
         disaster: disasters.events ?? [],
         conflict: conflicts.events ?? [],
         cyber: cyber.events ?? [],
+        webcam: [],
+        radio: [],
+        flights: [],
+        fires: [],
       })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to fetch events')

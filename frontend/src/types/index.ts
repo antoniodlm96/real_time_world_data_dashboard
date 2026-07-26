@@ -101,4 +101,50 @@ export interface RadioStation {
   geo_lng?: number
 }
 
-export type LayerKey = 'disaster' | 'conflict' | 'cyber'
+export interface Flight {
+  id: string
+  icao24?: string
+  callsign?: string
+  origin_country?: string
+  lat: number
+  lng: number
+  altitude: number
+  speed: number
+  heading: number
+  timestamp: string
+}
+
+export interface Fire {
+  id: string
+  lat: number
+  lng: number
+  brightness: number
+  frp: number
+  confidence: string
+  satellite: string
+  acq_date: string
+  acq_time: string
+  timestamp: string
+}
+
+export interface CommoditySeries {
+  time: number
+  open: number
+  high: number
+  low: number
+  close: number
+  volume: number
+}
+
+export interface CommodityEntry {
+  symbol: string
+  name: string
+  current_price: number
+  previous_close: number
+  change: number
+  change_pct: number
+  currency: string
+  series: CommoditySeries[]
+}
+
+export type LayerKey = 'disaster' | 'conflict' | 'cyber' | 'webcam' | 'radio' | 'flights' | 'fires'
