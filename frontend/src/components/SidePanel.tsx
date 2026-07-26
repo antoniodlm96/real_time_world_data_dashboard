@@ -17,6 +17,7 @@ const layerDefs: Record<LayerKey, { label: string; color: string; shape: string 
   radio: { label: 'Radio', color: '#fbbf24', shape: 'radio' },
   flights: { label: 'Flights', color: '#a78bfa', shape: 'flights' },
   fires: { label: 'Fires', color: '#ff6600', shape: 'fires' },
+  weather: { label: 'Weather', color: '#60a5fa', shape: 'weather' },
 }
 
 function ShapeIcon({ color, shape }: { color: string; shape: string }) {
@@ -69,6 +70,13 @@ function ShapeIcon({ color, shape }: { color: string; shape: string }) {
       </svg>
     )
   }
+  if (shape === 'weather') {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill={color} className="shrink-0">
+        <path d="M6.76 4.84l-1.8-1.79-1.41 1.41 1.79 1.79 1.42-1.41zM4 10.5H1v2h3v-2zm9-9.95h-2V3.5h2V.55zm7.45 3.91l-1.41-1.41-1.79 1.79 1.41 1.41 1.79-1.79zm-3.21 13.7l1.79 1.8 1.41-1.41-1.8-1.79-1.4 1.4zM20 10.5v2h3v-2h-3zm-8-5c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm-1 16.95h2V19.5h-2v2.95zm-7.45-3.91l1.41 1.41 1.79-1.8-1.41-1.41-1.79 1.8z"/>
+      </svg>
+    )
+  }
   return (
     <span className="inline-block rounded-full shrink-0" style={{
       width: 12, height: 12, background: color,
@@ -87,7 +95,7 @@ interface SidePanelProps {
 
 export default function SidePanel({ events, activeLayers, onToggleLayer, extraLayers = {} }: SidePanelProps) {
   const eventCats: LayerKey[] = ['disaster', 'conflict', 'cyber']
-  const mapLayers: LayerKey[] = ['webcam', 'radio', 'flights', 'fires']
+  const mapLayers: LayerKey[] = ['webcam', 'radio', 'flights', 'fires', 'weather']
 
   return (
     <div className="space-y-3">

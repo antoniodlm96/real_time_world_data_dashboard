@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 
 import httpx
 
+from backend.app.sources.dgt_traffic import fetch_dgt_cameras
+
 logger = logging.getLogger("webcam_finder")
 
 
@@ -62,7 +64,7 @@ async def fetch_earthcam_webcams() -> list[dict]:
 
 async def discover_webcams() -> list[dict]:
     all_cams = []
-    for fetcher in [fetch_earthcam_webcams]:
+    for fetcher in [fetch_earthcam_webcams, fetch_dgt_cameras]:
         try:
             cams = await fetcher()
             all_cams.extend(cams)

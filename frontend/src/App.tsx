@@ -16,6 +16,7 @@ import { useRadio } from './hooks/useRadio'
 import { useFlights } from './hooks/useFlights'
 import { useFires } from './hooks/useFires'
 import { useCommodities } from './hooks/useCommodities'
+import { useWeather } from './hooks/useWeather'
 import type { LayerKey, UnifiedEvent } from './types'
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
   const { flights, refresh: refreshFlights } = useFlights()
   const { fires, refresh: refreshFires } = useFires()
   const { commodities, refresh: refreshCommodities } = useCommodities()
+  const { weather, refresh: refreshWeather } = useWeather()
   const [activeLayers, setActiveLayers] = useState<Set<LayerKey>>(
     new Set(['disaster', 'conflict', 'cyber'])
   )
@@ -51,6 +53,7 @@ export default function App() {
     refreshFlights()
     refreshFires()
     refreshCommodities()
+    refreshWeather()
   }
 
   const allEvents: UnifiedEvent[] = Object.values(events).flat()
@@ -59,6 +62,7 @@ export default function App() {
     radio: radioStations.length,
     flights: flights.length,
     fires: fires.length,
+    weather: weather.length,
   }
 
   return (
@@ -178,7 +182,7 @@ export default function App() {
 
         <main className="flex-1 relative">
           <div className="absolute inset-0">
-            <WorldMap events={allEvents} activeLayers={activeLayers} webcams={webcams} radioStations={radioStations} flights={flights} fires={fires} />
+            <WorldMap events={allEvents} activeLayers={activeLayers} webcams={webcams} radioStations={radioStations} flights={flights} fires={fires} weather={weather} />
           </div>
 
           <div className="absolute bottom-4 left-4 right-4 md:hidden">

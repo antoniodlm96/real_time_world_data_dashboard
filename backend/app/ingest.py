@@ -12,6 +12,9 @@ from backend.app.sources.webcam_finder import discover_webcams
 from backend.app.sources.radio_discovery import discover_radio_stations
 from backend.app.sources.country_coords import lookup_location
 from backend.app.sources.gdacs import fetch_gdacs_rss
+from backend.app.sources.fires import fetch_fires as fetch_fire_data
+from backend.app.sources.flights import fetch_flights as fetch_flight_data
+from backend.app.sources.weather import fetch_all_weather
 from backend.app.database import (
     upsert_events,
     upsert_crypto,
@@ -25,6 +28,11 @@ from backend.app.database import (
     upsert_webcam,
     deactivate_webcam,
     update_news_categories,
+    upsert_fires,
+    deactivate_old_fires,
+    upsert_flights,
+    deactivate_old_flights,
+    upsert_weather_current,
 )
 from backend.app.services.news_classifier import classify_articles
 
@@ -66,6 +74,29 @@ async def ingest_all():
         await upsert_news(news)
     except Exception as e:
         logger.warning("news fetch failed: %s", e)
+
+    try:
+        fires = await fetch_fire_data()
+        if fires:
+            await upsert_fires(fires)
+            await deactivate_old_fires({f["id"] for f in fires})
+    except Exception as e:
+        logger.warning("fires fetch/upsert failed: %s", e)
+
+    try:
+        flights = await fetch_flight_data()
+        if flights:
+            await upsert_flights(flights)
+            await deactivate_old_flights({f["id"] for f in flights})
+    except Exception as e:
+        logger.warning("flights fetch/upsert failed: %s", e)
+
+    try:
+        weather = await fetch_all_weather()
+        if weather:
+            await upsert_weather_current(weather)
+    except Exception as e:
+        logger.warning("weather fetch/upsert failed: %s", e)
 
     try:
         await clean_old_events(720)

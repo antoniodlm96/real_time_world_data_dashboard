@@ -147,4 +147,31 @@ export interface CommodityEntry {
   series: CommoditySeries[]
 }
 
-export type LayerKey = 'disaster' | 'conflict' | 'cyber' | 'webcam' | 'radio' | 'flights' | 'fires'
+export interface WeatherForecast {
+  date: string
+  temp_max: number
+  temp_min: number
+  precipitation: number
+  wind_max: number
+}
+
+export interface WeatherEntry {
+  city: string
+  country: string
+  lat: number
+  lng: number
+  temperature: number
+  apparent_temperature: number
+  humidity: number
+  weather_code: number
+  weather_description: string
+  weather_icon: string
+  wind_speed: number
+  wind_gusts: number
+  pressure: number
+  severe: boolean
+  forecast: WeatherForecast[]
+  timestamp: string
+}
+
+export type LayerKey = 'disaster' | 'conflict' | 'cyber' | 'webcam' | 'radio' | 'flights' | 'fires' | 'weather'
