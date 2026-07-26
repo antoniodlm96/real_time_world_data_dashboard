@@ -9,7 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.app.config import settings
 from backend.app.database import init_db, seed_radio_frequencies, seed_webcams
 from backend.app.ingest import ingestion_loop
-from backend.app.routers import events, markets, webcams, news, radio
+from backend.app.sources.bluesky import bluesky_loop
+from backend.app.routers import events, markets, webcams, news, radio, flights, fires, commodities
 from backend.app.sources.radio_frequencies_seed import RADIO_FREQUENCIES
 from backend.app.sources.webcams_seed import SEED_WEBCAMS
 
@@ -22,11 +23,17 @@ async def lifespan(app: FastAPI):
     await init_db()
     await seed_webcams(SEED_WEBCAMS)
     await seed_radio_frequencies(RADIO_FREQUENCIES)
-    task = asyncio.create_task(ingestion_loop())
+    ingest_task = asyncio.create_task(ingestion_loop())
+    bluesky_task = asyncio.create_task(bluesky_loop())
     yield
-    task.cancel()
+    ingest_task.cancel()
+    bluesky_task.cancel()
     try:
-        await task
+        await ingest_task
+    except asyncio.CancelledError:
+        pass
+    try:
+        await bluesky_task
     except asyncio.CancelledError:
         pass
 
@@ -55,6 +62,9 @@ app.include_router(markets.router, prefix=settings.api_prefix)
 app.include_router(webcams.router, prefix=settings.api_prefix)
 app.include_router(news.router, prefix=settings.api_prefix)
 app.include_router(radio.router, prefix=settings.api_prefix)
+app.include_router(flights.router, prefix=settings.api_prefix)
+app.include_router(fires.router, prefix=settings.api_prefix)
+app.include_router(commodities.router, prefix=settings.api_prefix)
 
 
 @app.get(f"{settings.api_prefix}/health")

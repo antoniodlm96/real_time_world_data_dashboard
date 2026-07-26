@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     coingecko_url: str = "https://api.coingecko.com/api/v3"
     frankfurter_url: str = "https://api.frankfurter.dev/latest"
     groq_api_key: str = ""
+    firms_api_key: str = ""
 
     model_config = {"env_prefix": "DASHBOARD_", "env_file": ".env"}
 

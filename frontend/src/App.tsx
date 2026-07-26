@@ -13,6 +13,9 @@ import { useMarkets } from './hooks/useMarkets'
 import { useWebcams } from './hooks/useWebcams'
 import { useNews } from './hooks/useNews'
 import { useRadio } from './hooks/useRadio'
+import { useFlights } from './hooks/useFlights'
+import { useFires } from './hooks/useFires'
+import { useCommodities } from './hooks/useCommodities'
 import type { LayerKey, UnifiedEvent } from './types'
 
 export default function App() {
@@ -22,6 +25,9 @@ export default function App() {
   const { webcams, countries: wcCountries, selectedCountry: wcSelected, setSelectedCountry: setWcSelected, refresh: refreshWebcams } = useWebcams()
   const { news, countries: newsCountries, selectedCountry: newsSelected, setSelectedCountry: setNewsSelected, refresh: refreshNews } = useNews(timeHours)
   const { stations: radioStations, countries: radioCountries, selectedCountry: radioSelected, setSelectedCountry: setRadioSelected, refresh: refreshRadio } = useRadio()
+  const { flights, refresh: refreshFlights } = useFlights()
+  const { fires, refresh: refreshFires } = useFires()
+  const { commodities, refresh: refreshCommodities } = useCommodities()
   const [activeLayers, setActiveLayers] = useState<Set<LayerKey>>(
     new Set(['disaster', 'conflict', 'cyber'])
   )
@@ -42,9 +48,18 @@ export default function App() {
     refreshWebcams()
     refreshNews()
     refreshRadio()
+    refreshFlights()
+    refreshFires()
+    refreshCommodities()
   }
 
   const allEvents: UnifiedEvent[] = Object.values(events).flat()
+  const extraLayerCounts: Record<string, number> = {
+    webcam: webcams.length,
+    radio: radioStations.length,
+    flights: flights.length,
+    fires: fires.length,
+  }
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">
@@ -133,9 +148,10 @@ export default function App() {
               events={events}
               activeLayers={activeLayers}
               onToggleLayer={toggleLayer}
+              extraLayers={extraLayerCounts}
             />
           ) : panel === 'markets' ? (
-            <MarketsPanel crypto={crypto} forex={forex} />
+            <MarketsPanel crypto={crypto} forex={forex} commodities={commodities} news={news} />
           ) : panel === 'webcams' ? (
             <WebcamPanel
               webcams={webcams}
@@ -162,7 +178,7 @@ export default function App() {
 
         <main className="flex-1 relative">
           <div className="absolute inset-0">
-            <WorldMap events={allEvents} activeLayers={activeLayers} />
+            <WorldMap events={allEvents} activeLayers={activeLayers} webcams={webcams} radioStations={radioStations} flights={flights} fires={fires} />
           </div>
 
           <div className="absolute bottom-4 left-4 right-4 md:hidden">
@@ -224,9 +240,10 @@ export default function App() {
                   events={events}
                   activeLayers={activeLayers}
                   onToggleLayer={toggleLayer}
+                  extraLayers={extraLayerCounts}
                 />
               ) : panel === 'markets' ? (
-                <MarketsPanel crypto={crypto} forex={forex} />
+                <MarketsPanel crypto={crypto} forex={forex} commodities={commodities} news={news} />
               ) : panel === 'webcams' ? (
                 <WebcamPanel
                   webcams={webcams}
