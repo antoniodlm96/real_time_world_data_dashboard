@@ -5,6 +5,8 @@ import MarketsPanel from './components/MarketsPanel'
 import WebcamPanel from './components/WebcamPanel'
 import NewsPanel from './components/NewsPanel'
 import RadioPanel from './components/RadioPanel'
+import WorldClocks from './components/WorldClocks'
+import AdminPanel from './components/AdminPanel'
 import Ticker from './components/Ticker'
 import Legend from './components/Legend'
 import TimeFilter from './components/TimeFilter'
@@ -33,7 +35,7 @@ export default function App() {
   const [activeLayers, setActiveLayers] = useState<Set<LayerKey>>(
     new Set(['disaster', 'conflict', 'cyber'])
   )
-  const [panel, setPanel] = useState<'events' | 'markets' | 'webcams' | 'news' | 'radio'>('events')
+  const [panel, setPanel] = useState<'events' | 'markets' | 'webcams' | 'news' | 'radio' | 'clocks' | 'admin'>('events')
 
   const toggleLayer = useCallback((layer: LayerKey) => {
     setActiveLayers(prev => {
@@ -77,203 +79,243 @@ export default function App() {
           <Legend />
         </div>
         <TimeFilter hours={timeHours} onChange={setTimeHours} />
-        <div className="flex items-center gap-3">
-          {error && (
-            <span className="text-xs text-red-400 bg-red-900/50 px-2 py-1 rounded">
-              {error}
-            </span>
-          )}
-          <button
-            onClick={handleRefresh}
-            disabled={loading}
-            className="text-xs bg-gray-700 hover:bg-gray-600 disabled:opacity-50 px-3 py-1.5 rounded transition-colors"
-          >
-            {loading ? 'Refreshing...' : 'Refresh'}
-          </button>
+          <div className="flex items-center gap-2">
+            {error && (
+              <span className="text-xs text-red-400 bg-red-900/50 px-2 py-1 rounded">
+                {error}
+              </span>
+            )}
+            <button
+              onClick={() => setPanel(p => p === 'admin' ? 'events' : 'admin')}
+              className={`text-xs px-3 py-1.5 rounded font-medium transition-colors ${
+                panel === 'admin'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              {panel === 'admin' ? 'Dashboard' : 'Admin'}
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={loading}
+              className="text-xs bg-gray-700 hover:bg-gray-600 disabled:opacity-50 px-3 py-1.5 rounded transition-colors"
+            >
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
+        </header>
+
+      {panel === 'admin' ? (
+        <div className="flex-1 bg-gray-900 p-6 min-h-0">
+          <AdminPanel />
         </div>
-      </header>
-
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-80 bg-gray-900 border-r border-gray-700 p-4 overflow-y-auto shrink-0 hidden md:block">
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={() => setPanel('events')}
-              className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
-                panel === 'events'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              Events
-            </button>
-            <button
-              onClick={() => setPanel('markets')}
-              className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
-                panel === 'markets'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              Markets
-            </button>
-            <button
-              onClick={() => setPanel('webcams')}
-              className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
-                panel === 'webcams'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              Webcams
-            </button>
-            <button
-              onClick={() => setPanel('news')}
-              className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
-                panel === 'news'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              News
-            </button>
-            <button
-              onClick={() => setPanel('radio')}
-              className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
-                panel === 'radio'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              Radio
-            </button>
-          </div>
-          {panel === 'events' ? (
-            <SidePanel
-              events={events}
-              activeLayers={activeLayers}
-              onToggleLayer={toggleLayer}
-              extraLayers={extraLayerCounts}
-            />
-          ) : panel === 'markets' ? (
-            <MarketsPanel crypto={crypto} forex={forex} commodities={commodities} news={news} />
-          ) : panel === 'webcams' ? (
-            <WebcamPanel
-              webcams={webcams}
-              countries={wcCountries}
-              selectedCountry={wcSelected}
-              onSelectCountry={setWcSelected}
-            />
-          ) : panel === 'news' ? (
-            <NewsPanel
-              news={news}
-              countries={newsCountries}
-              selectedCountry={newsSelected}
-              onSelectCountry={setNewsSelected}
-            />
-          ) : (
-            <RadioPanel
-              stations={radioStations}
-              countries={radioCountries}
-              selectedCountry={radioSelected}
-              onSelectCountry={setRadioSelected}
-            />
-          )}
-        </aside>
-
-        <main className="flex-1 relative">
-          <div className="absolute inset-0">
-            <WorldMap events={allEvents} activeLayers={activeLayers} webcams={webcams} radioStations={radioStations} flights={flights} fires={fires} weather={weather} />
-          </div>
-
-          <div className="absolute bottom-4 left-4 right-4 md:hidden">
-            <div className="bg-gray-900/90 backdrop-blur rounded-lg p-3">
-              <div className="flex gap-2 mb-2">
-                <button
-                  onClick={() => setPanel('events')}
-                  className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
-                    panel === 'events'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300'
-                  }`}
-                >
-                  Events
-                </button>
-                <button
-                  onClick={() => setPanel('markets')}
-                  className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
-                    panel === 'markets'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300'
-                  }`}
-                >
-                  Markets
-                </button>
-                <button
-                  onClick={() => setPanel('webcams')}
-                  className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
-                    panel === 'webcams'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300'
-                  }`}
-                >
-                  Webcams
-                </button>
-                <button
-                  onClick={() => setPanel('news')}
-                  className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
-                    panel === 'news'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300'
-                  }`}
-                >
-                  News
-                </button>
-                <button
-                  onClick={() => setPanel('radio')}
-                  className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
-                    panel === 'radio'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-700 text-gray-300'
-                  }`}
-                >
-                  Radio
-                </button>
-              </div>
-              {panel === 'events' ? (
-                <SidePanel
-                  events={events}
-                  activeLayers={activeLayers}
-                  onToggleLayer={toggleLayer}
-                  extraLayers={extraLayerCounts}
-                />
-              ) : panel === 'markets' ? (
-                <MarketsPanel crypto={crypto} forex={forex} commodities={commodities} news={news} />
-              ) : panel === 'webcams' ? (
-                <WebcamPanel
-                  webcams={webcams}
-                  countries={wcCountries}
-                  selectedCountry={wcSelected}
-                  onSelectCountry={setWcSelected}
-                />
-              ) : panel === 'news' ? (
-                <NewsPanel
-                  news={news}
-                  countries={newsCountries}
-                  selectedCountry={newsSelected}
-                  onSelectCountry={setNewsSelected}
-                />
-              ) : (
-                <RadioPanel
-                  stations={radioStations}
-                  countries={radioCountries}
-                  selectedCountry={radioSelected}
-                  onSelectCountry={setRadioSelected}
-                />
-              )}
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          <aside className="w-80 bg-gray-900 border-r border-gray-700 p-4 overflow-y-auto shrink-0 hidden md:block">
+            <div className="flex gap-2 mb-4">
+              <button
+                onClick={() => setPanel('events')}
+                className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                  panel === 'events'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Events
+              </button>
+              <button
+                onClick={() => setPanel('markets')}
+                className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                  panel === 'markets'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Markets
+              </button>
+              <button
+                onClick={() => setPanel('webcams')}
+                className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                  panel === 'webcams'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Webcams
+              </button>
+              <button
+                onClick={() => setPanel('news')}
+                className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                  panel === 'news'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                News
+              </button>
+              <button
+                onClick={() => setPanel('radio')}
+                className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                  panel === 'radio'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Radio
+              </button>
+              <button
+                onClick={() => setPanel('clocks')}
+                className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                  panel === 'clocks'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Clocks
+              </button>
             </div>
-          </div>
-        </main>
-      </div>
+            {panel === 'events' ? (
+              <SidePanel
+                events={events}
+                activeLayers={activeLayers}
+                onToggleLayer={toggleLayer}
+                extraLayers={extraLayerCounts}
+              />
+            ) : panel === 'markets' ? (
+              <MarketsPanel crypto={crypto} forex={forex} commodities={commodities} news={news} />
+            ) : panel === 'webcams' ? (
+              <WebcamPanel
+                webcams={webcams}
+                countries={wcCountries}
+                selectedCountry={wcSelected}
+                onSelectCountry={setWcSelected}
+              />
+            ) : panel === 'news' ? (
+              <NewsPanel
+                news={news}
+                countries={newsCountries}
+                selectedCountry={newsSelected}
+                onSelectCountry={setNewsSelected}
+              />
+            ) : panel === 'clocks' ? (
+              <WorldClocks />
+            ) : (
+              <RadioPanel
+                stations={radioStations}
+                countries={radioCountries}
+                selectedCountry={radioSelected}
+                onSelectCountry={setRadioSelected}
+              />
+            )}
+          </aside>
+
+          <main className="flex-1 relative">
+            <div className="absolute inset-0">
+              <WorldMap events={allEvents} activeLayers={activeLayers} webcams={webcams} radioStations={radioStations} flights={flights} fires={fires} weather={weather} />
+            </div>
+
+            <div className="absolute bottom-4 left-4 right-4 md:hidden">
+              <div className="bg-gray-900/90 backdrop-blur rounded-lg p-3">
+                <div className="flex gap-2 mb-2">
+                  <button
+                    onClick={() => setPanel('events')}
+                    className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                      panel === 'events'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    Events
+                  </button>
+                  <button
+                    onClick={() => setPanel('markets')}
+                    className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                      panel === 'markets'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    Markets
+                  </button>
+                  <button
+                    onClick={() => setPanel('webcams')}
+                    className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                      panel === 'webcams'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    Webcams
+                  </button>
+                  <button
+                    onClick={() => setPanel('news')}
+                    className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                      panel === 'news'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    News
+                  </button>
+                  <button
+                    onClick={() => setPanel('radio')}
+                    className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                      panel === 'radio'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    Radio
+                  </button>
+                  <button
+                    onClick={() => setPanel('clocks')}
+                    className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                      panel === 'clocks'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    Clocks
+                  </button>
+                </div>
+                {panel === 'events' ? (
+                  <SidePanel
+                    events={events}
+                    activeLayers={activeLayers}
+                    onToggleLayer={toggleLayer}
+                    extraLayers={extraLayerCounts}
+                  />
+                ) : panel === 'markets' ? (
+                  <MarketsPanel crypto={crypto} forex={forex} commodities={commodities} news={news} />
+                ) : panel === 'webcams' ? (
+                  <WebcamPanel
+                    webcams={webcams}
+                    countries={wcCountries}
+                    selectedCountry={wcSelected}
+                    onSelectCountry={setWcSelected}
+                  />
+                ) : panel === 'news' ? (
+                  <NewsPanel
+                    news={news}
+                    countries={newsCountries}
+                    selectedCountry={newsSelected}
+                    onSelectCountry={setNewsSelected}
+                  />
+                ) : panel === 'clocks' ? (
+                  <WorldClocks />
+                ) : (
+                  <RadioPanel
+                    stations={radioStations}
+                    countries={radioCountries}
+                    selectedCountry={radioSelected}
+                    onSelectCountry={setRadioSelected}
+                  />
+                )}
+              </div>
+            </div>
+          </main>
+        </div>
+      )}
     </div>
   )
 }

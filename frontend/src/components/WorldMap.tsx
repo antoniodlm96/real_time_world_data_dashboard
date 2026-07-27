@@ -110,8 +110,13 @@ function EventMarkers({ events, activeLayers }: { events: UnifiedEvent[]; active
                 </p>
               )}
               <p className="text-gray-500 text-xs mt-1">
-                Source: {event.source} |{' '}
-                {new Date(event.timestamp).toLocaleString()}
+                Source: {event.source}
+              </p>
+              <p className="text-gray-500 text-xs mt-1">
+                UTC: {new Date(event.timestamp).toUTCString().slice(5, -4)}
+              </p>
+              <p className="text-gray-500 text-xs mt-1">
+                Local: {new Date(event.timestamp).toLocaleString()}
               </p>
             </div>
           </Popup>

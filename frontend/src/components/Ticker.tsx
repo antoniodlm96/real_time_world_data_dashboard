@@ -1,6 +1,11 @@
 import { useMemo } from 'react'
 import type { UnifiedEvent, LayerKey } from '../types'
 
+function formatTickTime(iso: string): string {
+  const d = new Date(iso)
+  return `UTC ${d.toUTCString().slice(5, -4)}`
+}
+
 const categoryColors: Partial<Record<LayerKey, string>> = {
   disaster: 'text-red-400',
   conflict: 'text-cyan-400',
@@ -15,11 +20,11 @@ interface TickerProps {
 
 export default function Ticker({ events }: TickerProps) {
   const headlines = useMemo(() => {
-    const items: { title: string; category: LayerKey }[] = []
+    const items: { title: string; category: LayerKey; timestamp: string }[] = []
     for (const cat of EVENT_CATS) {
       const list = events[cat] || []
       for (const event of list.slice(0, 10)) {
-        items.push({ title: event.title, category: cat })
+        items.push({ title: event.title, category: cat, timestamp: event.timestamp })
       }
     }
     return items.sort(() => Math.random() - 0.5)
@@ -37,6 +42,7 @@ export default function Ticker({ events }: TickerProps) {
           <div className="animate-marquee whitespace-nowrap flex gap-12" style={{ animation: 'marquee 40s linear infinite' }}>
             {headlines.concat(headlines).map((item, i) => (
               <span key={i} className="inline-flex items-center gap-2 text-sm">
+                <span className="text-gray-500 text-xs">{formatTickTime(item.timestamp)}</span>
                 <span className={`text-xs font-bold uppercase ${categoryColors[item.category] || 'text-gray-400'}`}>
                   [{item.category}]
                 </span>

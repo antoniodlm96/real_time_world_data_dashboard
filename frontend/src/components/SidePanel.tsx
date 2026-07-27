@@ -1,5 +1,10 @@
 import type { UnifiedEvent, LayerKey } from '../types'
 
+function formatTimeBoth(iso: string): string {
+  const d = new Date(iso)
+  return `UTC: ${d.toUTCString().slice(5, -4)}  |  Local: ${d.toLocaleString()}`
+}
+
 function abbreviateUrl(url: string): string {
   try {
     const u = new URL(url.startsWith('http') ? url : `https://${url}`)
@@ -134,9 +139,10 @@ export default function SidePanel({ events, activeLayers, onToggleLayer, extraLa
                     >
                       {event.title}
                     </a>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 mt-1 flex gap-2">
                       <span className="text-gray-400">{abbreviateUrl(event.source_url || event.source)}</span>
-                      {event.magnitude != null && ` · M${event.magnitude}`}
+                      {event.magnitude != null && <span>· M{event.magnitude}</span>}
+                      <span className="ml-auto text-gray-600 text-right">{formatTimeBoth(event.timestamp)}</span>
                     </p>
                   </div>
                 ))}

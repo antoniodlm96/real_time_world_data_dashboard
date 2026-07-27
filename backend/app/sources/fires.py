@@ -50,7 +50,13 @@ async def fetch_fires() -> list[dict]:
 
 async def _fetch_gdacs_fires() -> list[dict]:
     try:
-        feed = await asyncio.to_thread(feedparser.parse, GDACS_RSS)
+        feed = await asyncio.wait_for(
+            asyncio.to_thread(feedparser.parse, GDACS_RSS),
+            timeout=15,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("GDACS RSS timeout for fires")
+        return []
     except Exception as e:
         logger.warning("GDACS RSS parse failed for fires: %s", e)
         return []

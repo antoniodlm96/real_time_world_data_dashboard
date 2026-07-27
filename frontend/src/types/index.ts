@@ -80,6 +80,7 @@ export interface NewsArticle {
   source_country?: string
   published_at: string
   category?: string
+  translated_title?: string
 }
 
 export interface RadioStation {

@@ -95,6 +95,7 @@ async def init_db():
                 source_country TEXT,
                 published_at TEXT NOT NULL,
                 category TEXT,
+                translated_title TEXT,
                 ingested_at TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -222,6 +223,10 @@ async def init_db():
                     await db.execute(f"UPDATE {table} SET {col}=?", (now_literal,))
                 except Exception:
                     pass
+        try:
+            await db.execute("ALTER TABLE news ADD COLUMN translated_title TEXT")
+        except Exception:
+            pass
         await db.commit()
     finally:
         await db.close()
@@ -251,7 +256,7 @@ async def upsert_events(events: list[dict]):
                 (
                     e["id"], e["category"], e["title"], e.get("description"),
                     loc.get("lat"), loc.get("lng"), loc.get("place"),
-                    e.get("magnitude"), str(e["timestamp"]),
+                    e.get("magnitude"), str(e["timestamp"]).replace(" ", "T"),
                     e["source"], e.get("source_url"), e.get("severity"), now,
                     now, now,
                 ),
@@ -493,6 +498,19 @@ async def get_unclassified_news(limit: int = 100) -> list[dict]:
         await db.close()
 
 
+async def get_news_without_translation(limit: int = 50) -> list[dict]:
+    db = await get_db()
+    try:
+        cursor = await db.execute(
+            "SELECT * FROM news WHERE category IS NOT NULL AND translated_title IS NULL ORDER BY published_at DESC LIMIT ?",
+            (limit,),
+        )
+        rows = await cursor.fetchall()
+        return [{k: r[k] for k in r.keys()} for r in rows]
+    finally:
+        await db.close()
+
+
 async def update_news_categories(classifications: dict[str, dict]):
     if not classifications:
         return
@@ -500,11 +518,22 @@ async def update_news_categories(classifications: dict[str, dict]):
     now = datetime.now(timezone.utc).isoformat()
     try:
         for article_id, data in classifications.items():
-            cat = data["category"] if isinstance(data, dict) else data
-            await db.execute(
-                "UPDATE news SET category = ?, updated_at = ? WHERE id = ?",
-                (cat, now, article_id),
-            )
+            if isinstance(data, dict):
+                cat = data.get("category", "other")
+                tt = data.get("translated_title")
+            else:
+                cat = data
+                tt = None
+            if tt:
+                await db.execute(
+                    "UPDATE news SET category = ?, translated_title = ?, updated_at = ? WHERE id = ?",
+                    (cat, tt, now, article_id),
+                )
+            else:
+                await db.execute(
+                    "UPDATE news SET category = ?, updated_at = ? WHERE id = ?",
+                    (cat, now, article_id),
+                )
         await db.commit()
     finally:
         await db.close()
@@ -541,6 +570,7 @@ async def get_news(
                 "source_country": r["source_country"],
                 "published_at": r["published_at"],
                 "category": r["category"],
+                "translated_title": r["translated_title"],
                 "created_at": r["created_at"],
                 "updated_at": r["updated_at"],
             })
