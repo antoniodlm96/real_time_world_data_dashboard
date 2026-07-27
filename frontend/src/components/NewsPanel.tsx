@@ -7,13 +7,9 @@ interface NewsPanelProps {
   onSelectCountry: (country: string | null) => void
 }
 
-function timeAgo(published: string): string {
-  const diff = Date.now() - new Date(published).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
+function formatTimeBoth(iso: string): string {
+  const d = new Date(iso)
+  return `UTC: ${d.toUTCString().slice(5, -4)}  |  Local: ${d.toLocaleString()}`
 }
 
 export default function NewsPanel({ news, countries, selectedCountry, onSelectCountry }: NewsPanelProps) {
@@ -80,7 +76,12 @@ export default function NewsPanel({ news, countries, selectedCountry, onSelectCo
                   {a.category}
                 </span>
               )}
-              <p className="text-sm text-gray-200 leading-tight line-clamp-2 flex-1">{a.title}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-gray-200 leading-tight line-clamp-2">{a.translated_title || a.title}</p>
+                {a.translated_title && a.translated_title !== a.title && (
+                  <p className="text-xs text-gray-500 mt-0.5 line-clamp-1 italic">{a.title}</p>
+                )}
+              </div>
             </div>
             {a.description && (
               <p className="text-xs text-gray-500 mt-1 line-clamp-2">{a.description}</p>
@@ -88,7 +89,7 @@ export default function NewsPanel({ news, countries, selectedCountry, onSelectCo
             <p className="text-xs text-gray-600 mt-2">
               <span className="text-gray-400">{a.source_name}</span>
               {a.source_country && <span className="text-gray-600"> · {a.source_country}</span>}
-              <span className="text-gray-600"> · {timeAgo(a.published_at)}</span>
+              <span className="text-gray-600"> · {formatTimeBoth(a.published_at)}</span>
             </p>
           </a>
         ))}

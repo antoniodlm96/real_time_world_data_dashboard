@@ -11,6 +11,20 @@ from backend.app.sources.country_coords import lookup_location
 
 logger = logging.getLogger("bluesky")
 
+_last_event_time: str | None = None
+_last_flush_time: str | None = None
+_connected: bool = False
+
+
+def get_bluesky_status() -> dict:
+    return {
+        "name": "bluesky_firehose",
+        "type": "WebSocket",
+        "connected": _connected,
+        "last_event_time": _last_event_time,
+        "last_flush_time": _last_flush_time,
+    }
+
 JETSTREAM_URL = "wss://jetstream1.us-east.bsky.network/subscribe"
 
 EMERGENCY_KEYWORDS = [
@@ -141,6 +155,7 @@ async def bluesky_loop():
         try:
             import websockets
             async for ws in websockets.connect(JETSTREAM_URL, ping_interval=30, ping_timeout=10):
+                _connected = True
                 logger.info("Connected to Bluesky firehose")
                 batch: list[dict] = []
                 last_flush = datetime.now(timezone.utc)
@@ -171,12 +186,14 @@ async def bluesky_loop():
 
                         event = await _process_post(text, did, rkey, created_at)
                         if event:
+                            _last_event_time = created_at
                             batch.append(event)
 
                         now = datetime.now(timezone.utc)
                         if len(batch) >= 10 or (batch and (now - last_flush).total_seconds() >= 30):
                             try:
                                 await upsert_events(batch)
+                                _last_flush_time = now.isoformat()
                                 logger.info("Bluesky: %d events", len(batch))
                             except Exception as e:
                                 logger.warning("Bluesky upsert failed: %s", e)
@@ -184,6 +201,7 @@ async def bluesky_loop():
                             last_flush = now
 
                 except websockets.exceptions.ConnectionClosed:
+                    _connected = False
                     logger.warning("Bluesky disconnected, reconnecting...")
                     continue
 

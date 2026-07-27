@@ -25,6 +25,7 @@ from backend.app.database import (
     clean_old_news,
     get_webcams,
     get_unclassified_news,
+    get_news_without_translation,
     upsert_webcam,
     deactivate_webcam,
     update_news_categories,
@@ -41,10 +42,48 @@ logger = logging.getLogger("ingest")
 INGEST_INTERVAL = 10
 WEBCAM_CHECK_INTERVAL = 300
 CLASSIFY_INTERVAL = 60
+GDACS_INTERVAL = 300
+WEBCAM_DISCOVERY_INTERVAL = 3600
+RADIO_DISCOVERY_INTERVAL = 7200
+
+_last_run: dict[str, float] = {}
 
 
-_webcam_counter = 0
-_classify_counter = 0
+def _mark_run(name: str):
+    _last_run[name] = datetime.now(timezone.utc).timestamp()
+
+
+def _should_run(name: str, interval: int) -> bool:
+    last = _last_run.get(name)
+    if last is None:
+        return True
+    return (datetime.now(timezone.utc).timestamp() - last) >= interval
+
+
+def get_process_status() -> list[dict]:
+    now = datetime.now(timezone.utc).timestamp()
+    status = []
+    for name, interval in [
+        ("ingest_all", INGEST_INTERVAL),
+        ("classify_news", CLASSIFY_INTERVAL),
+        ("gdacs_rss", GDACS_INTERVAL),
+        ("check_webcams", WEBCAM_CHECK_INTERVAL),
+        ("discover_webcams", WEBCAM_DISCOVERY_INTERVAL),
+        ("discover_radio", RADIO_DISCOVERY_INTERVAL),
+    ]:
+        last = _last_run.get(name)
+        if last is not None:
+            elapsed = now - last
+            remaining = max(0, interval - elapsed)
+        else:
+            remaining = 0
+        status.append({
+            "name": name,
+            "interval": interval,
+            "last_run": datetime.fromtimestamp(last, tz=timezone.utc).isoformat() if last is not None else None,
+            "remaining_seconds": round(remaining),
+        })
+    return status
 
 
 async def ingest_all():
@@ -136,9 +175,11 @@ EVENT_CATEGORIES = {"disaster", "conflict", "cyber"}
 async def classify_news():
     try:
         unclassified = await get_unclassified_news(limit=20)
-        if not unclassified:
+        need_translation = await get_news_without_translation(limit=15)
+        articles = unclassified + need_translation
+        if not articles:
             return
-        classifications = await classify_articles(unclassified)
+        classifications = await classify_articles(articles)
         if not classifications:
             return
         await update_news_categories(classifications)
@@ -198,32 +239,35 @@ async def check_webcams():
 
 
 async def ingestion_loop():
-    global _webcam_counter, _classify_counter, _gdacs_counter, _discovery_counter, _radio_discovery_counter
     while True:
         try:
-            await ingest_all()
-            _webcam_counter += INGEST_INTERVAL
-            _classify_counter += INGEST_INTERVAL
-            _gdacs_counter += INGEST_INTERVAL
-            _discovery_counter += INGEST_INTERVAL
-            _radio_discovery_counter += INGEST_INTERVAL
-            if _classify_counter >= CLASSIFY_INTERVAL:
+            try:
+                await asyncio.wait_for(ingest_all(), timeout=60)
+            except asyncio.TimeoutError:
+                logger.warning("ingest_all timed out after 60s")
+            _mark_run("ingest_all")
+
+            if _should_run("classify_news", CLASSIFY_INTERVAL):
                 await classify_news()
-                _classify_counter = 0
-            if _gdacs_counter >= 300:
+                _mark_run("classify_news")
+
+            if _should_run("gdacs_rss", GDACS_INTERVAL):
                 gdacs = await fetch_gdacs_rss()
                 if gdacs:
                     await upsert_events(gdacs)
-                _gdacs_counter = 0
-            if _webcam_counter >= WEBCAM_CHECK_INTERVAL:
+                _mark_run("gdacs_rss")
+
+            if _should_run("check_webcams", WEBCAM_CHECK_INTERVAL):
                 await check_webcams()
-                _webcam_counter = 0
-            if _discovery_counter >= 3600:
+                _mark_run("check_webcams")
+
+            if _should_run("discover_webcams", WEBCAM_DISCOVERY_INTERVAL):
                 await discover_new_webcams()
-                _discovery_counter = 0
-            if _radio_discovery_counter >= 7200:
+                _mark_run("discover_webcams")
+
+            if _should_run("discover_radio", RADIO_DISCOVERY_INTERVAL):
                 await discover_radio()
-                _radio_discovery_counter = 0
+                _mark_run("discover_radio")
         except Exception as e:
             logger.error("ingestion cycle failed: %s", e)
         await asyncio.sleep(INGEST_INTERVAL)
