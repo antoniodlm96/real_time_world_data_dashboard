@@ -49,6 +49,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - "127.0.0.1:3000:80"
+    labels:
+      homelab.name: "World Data Dashboard"
+      homelab.url: "/dashboard/"
+      homelab.icon: "📊"
+      homelab.description: "Datos en tiempo real del mundo"
     depends_on:
       - backend
 
