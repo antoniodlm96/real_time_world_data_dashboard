@@ -3,6 +3,9 @@ from datetime import datetime, timezone
 
 import httpx
 
+from backend.app.cache import cache
+from backend.app.config import settings
+
 logger = logging.getLogger("weather")
 
 CITIES = [
@@ -61,6 +64,14 @@ WMO_CODES: dict[int, tuple[str, str]] = {
 
 
 async def fetch_all_weather() -> list[dict]:
+    return await cache.get_or_fetch(
+        "openmeteo:all_cities",
+        settings.cache_ttl_weather,
+        _fetch_all_weather_raw,
+    )
+
+
+async def _fetch_all_weather_raw() -> list[dict]:
     now = datetime.now(timezone.utc).isoformat()
     results = []
 

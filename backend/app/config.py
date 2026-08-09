@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     cache_ttl_gdelt: int = 900
     cache_ttl_crypto: int = 60
     cache_ttl_forex: int = 43200
+    cache_ttl_weather: int = 900
     db_type: str = "postgres"
     database_url: str = "postgresql://dashboard:dashboard@localhost:5432/dashboard"
     db_path: str = "data/dashboard.db"
@@ -19,7 +20,7 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     firms_api_key: str = ""
 
-    model_config = {"env_prefix": "DASHBOARD_", "env_file": ".env"}
+    model_config = {"env_prefix": "DASHBOARD_", "env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()
