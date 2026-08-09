@@ -8,6 +8,7 @@ import httpx
 
 from backend.app.database import upsert_events
 from backend.app.sources.country_coords import lookup_location
+from backend.app.services.source_health import record_source
 
 logger = logging.getLogger("bluesky")
 
@@ -26,6 +27,7 @@ def get_bluesky_status() -> dict:
     }
 
 JETSTREAM_URL = "wss://jetstream1.us-east.bsky.network/subscribe"
+JETSTREAM_HEALTH_URL = "https://jetstream1.us-east.bsky.network/"
 
 EMERGENCY_KEYWORDS = [
     "earthquake", "terremoto", "sismo",
@@ -139,16 +141,19 @@ async def _process_post(text: str, did: str, rkey: str, created_at: str) -> dict
 
 
 async def bluesky_loop():
+    global _connected, _last_event_time, _last_flush_time
     while True:
         try:
             async with httpx.AsyncClient(timeout=5) as client:
-                resp = await client.get("https://jetstream1.us-east.bsky.network/health")
+                resp = await client.get(JETSTREAM_HEALTH_URL)
                 if resp.status_code != 200:
                     logger.warning("Jetstream not healthy, retrying in 30s")
+                    await record_source("bluesky", False, max_stale_min=15)
                     await asyncio.sleep(30)
                     continue
         except Exception:
             logger.warning("Jetstream health check failed, retrying in 30s")
+            await record_source("bluesky", False, max_stale_min=15)
             await asyncio.sleep(30)
             continue
 
@@ -159,6 +164,7 @@ async def bluesky_loop():
                 logger.info("Connected to Bluesky firehose")
                 batch: list[dict] = []
                 last_flush = datetime.now(timezone.utc)
+                last_health = last_flush
 
                 try:
                     async for raw in ws:
@@ -184,15 +190,20 @@ async def bluesky_loop():
                         rkey = commit.get("rkey", "unknown")
                         created_at = record.get("createdAt", datetime.now(timezone.utc).isoformat())
 
+                        now = datetime.now(timezone.utc)
+                        if (now - last_health).total_seconds() >= 60:
+                            await record_source("bluesky", True, max_stale_min=15)
+                            last_health = now
+
                         event = await _process_post(text, did, rkey, created_at)
                         if event:
                             _last_event_time = created_at
                             batch.append(event)
 
-                        now = datetime.now(timezone.utc)
                         if len(batch) >= 10 or (batch and (now - last_flush).total_seconds() >= 30):
                             try:
                                 await upsert_events(batch)
+                                await record_source("bluesky", True, max_stale_min=15)
                                 _last_flush_time = now.isoformat()
                                 logger.info("Bluesky: %d events", len(batch))
                             except Exception as e:
