@@ -15,5 +15,6 @@ jobs:
       - name: Deploy with Docker Compose
         working-directory: /home/user/apps/real_time_world_data_dashboard
         run: |
-          git pull --ff-only origin main
+          git fetch origin
+          git reset --hard origin/main
           docker compose up --build -d
