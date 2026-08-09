@@ -1,0 +1,19 @@
+name: Deploy to myserver
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: [self-hosted]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy with Docker Compose
+        working-directory: /home/user/apps/real_time_world_data_dashboard
+        run: |
+          git pull --ff-only origin main
+          docker compose up --build -d
