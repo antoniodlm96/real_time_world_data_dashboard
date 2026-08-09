@@ -73,7 +73,6 @@ export function useSmartPoll<T>(
   useEffect(() => {
     mountedRef.current = true
     visibleRef.current = !document.hidden
-    run()
 
     const onVisibility = () => {
       const wasVisible = visibleRef.current
@@ -92,6 +91,13 @@ export function useSmartPoll<T>(
       clearTimer()
     }
   }, [])
+
+  useEffect(() => {
+    if (!mountedRef.current) return
+    if (dataRef.current === null) setLoading(true)
+    clearTimer()
+    run()
+  }, [fetcher])
 
   return { data, loading, error, refresh: run }
 }

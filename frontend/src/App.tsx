@@ -1,6 +1,5 @@
-import { useState, useCallback, Suspense, lazy } from 'react'
+import { useState, useCallback } from 'react'
 import WorldMap from './components/WorldMap'
-import GlobeMap from './components/GlobeMap'
 import SidePanel from './components/SidePanel'
 import MarketsPanel from './components/MarketsPanel'
 import WebcamPanel from './components/WebcamPanel'
@@ -31,8 +30,6 @@ import { useCascades } from './hooks/useCascades'
 import type { LayerKey, UnifiedEvent } from './types'
 import type { CountryGroup } from './utils/groupEvents'
 
-const LazyGlobeMap = lazy(() => import('./components/GlobeMap'))
-
 type PanelKey = 'events' | 'markets' | 'webcams' | 'news' | 'radio' | 'clocks' | 'cii' | 'prediction' | 'admin'
 
 export default function App() {
@@ -55,7 +52,6 @@ export default function App() {
     new Set(['disaster', 'conflict', 'cyber'])
   )
   const [panel, setPanel] = useState<PanelKey>('events')
-  const [mapMode, setMapMode] = useState<'globe' | 'flat'>('globe')
   const [selectedGroup, setSelectedGroup] = useState<CountryGroup | null>(null)
 
   const toggleLayer = useCallback((layer: LayerKey) => {
@@ -265,48 +261,22 @@ export default function App() {
 
           <main className="flex-1 relative">
             <div className="absolute inset-0">
-              {mapMode === 'globe' ? (
-                <Suspense fallback={<div className="w-full h-full bg-black flex items-center justify-center text-xs text-gray-500">Loading 3D globe…</div>}>
-                  <LazyGlobeMap
-                  events={allEvents}
-                  activeLayers={activeLayers}
-                  webcams={webcams}
-                  radioStations={radioStations}
-                  flights={flights}
-                  fires={fires}
-                  weather={weather}
-                  cii={ciiScores}
-                  gpsjam={gpsjam}
-                  infrastructure={infrastructure}
-                  cascades={cascades}
-                  onSelectGroup={setSelectedGroup}
-                />
-                </Suspense>
-              ) : (
-                <WorldMap
-                  events={allEvents}
-                  activeLayers={activeLayers}
-                  webcams={webcams}
-                  radioStations={radioStations}
-                  flights={flights}
-                  fires={fires}
-                  weather={weather}
-                  cii={ciiScores}
-                  gpsjam={gpsjam}
-                  infrastructure={infrastructure}
-                  cascades={cascades}
-                  onSelectGroup={setSelectedGroup}
-                />
-              )}
+              <WorldMap
+                events={allEvents}
+                activeLayers={activeLayers}
+                webcams={webcams}
+                radioStations={radioStations}
+                flights={flights}
+                fires={fires}
+                weather={weather}
+                cii={ciiScores}
+                gpsjam={gpsjam}
+                infrastructure={infrastructure}
+                cascades={cascades}
+                onSelectGroup={setSelectedGroup}
+              />
               <CountryEventsDrawer group={selectedGroup} onClose={() => setSelectedGroup(null)} />
             </div>
-
-            <button
-              onClick={() => setMapMode(m => m === 'globe' ? 'flat' : 'globe')}
-              className="absolute top-3 right-3 z-[1000] text-xs px-3 py-1.5 rounded font-medium bg-gray-800/90 text-gray-200 border border-gray-600 hover:bg-gray-700 transition-colors"
-            >
-              {mapMode === 'globe' ? '🌐 3D Globe' : '🗺️ Flat Map'}
-            </button>
 
             <div className="absolute bottom-4 left-4 right-4 md:hidden">
               <div className="bg-gray-900/90 backdrop-blur rounded-lg p-3">

@@ -10,7 +10,6 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "globe.gl": "^2.46.1",
     "h3-js": "^4.5.0",
     "leaflet": "^1.9.4",
     "lightweight-charts": "^5.2.0",
