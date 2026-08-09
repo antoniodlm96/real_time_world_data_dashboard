@@ -3,7 +3,7 @@ import type { UnifiedEvent } from '../types'
 export type EventCategory = 'disaster' | 'conflict' | 'cyber'
 
 export interface CountryGroup {
-  country: string
+  country: string | null
   lat: number
   lng: number
   total: number
@@ -11,36 +11,46 @@ export interface CountryGroup {
   events: UnifiedEvent[]
 }
 
+// Group events that share the same map position (rounded to ~1km). USGS
+// and other precisely-geolocated events keep their exact spot; only truly
+// colocated points (e.g. news/posts pinned to a country centroid) collapse
+// into a single marker with a count badge.
+const CELL = 0.01
+
+function cellKey(lat: number, lng: number): string {
+  return `${Math.round(lat / CELL)},${Math.round(lng / CELL)}`
+}
+
 export function groupEventsByCountry(events: UnifiedEvent[]): {
   groups: CountryGroup[]
   singles: UnifiedEvent[]
 } {
-  const byCountry = new Map<string, UnifiedEvent[]>()
+  const byCell = new Map<string, UnifiedEvent[]>()
+  const singles: UnifiedEvent[] = []
+
   for (const e of events) {
-    if (e.country && e.location) {
-      const arr = byCountry.get(e.country)
-      if (arr) arr.push(e)
-      else byCountry.set(e.country, [e])
-    }
+    if (!e.location) continue
+    const key = cellKey(e.location.lat, e.location.lng)
+    const arr = byCell.get(key)
+    if (arr) arr.push(e)
+    else byCell.set(key, [e])
   }
 
   const groups: CountryGroup[] = []
-  const singles: UnifiedEvent[] = []
-
-  for (const [country, evs] of byCountry) {
+  for (const [key, evs] of byCell) {
     if (evs.length < 2) {
       singles.push(...evs)
       continue
     }
-    const withLoc = evs.filter(e => e.location)
-    const lat = withLoc.reduce((s, e) => s + (e.location!.lat || 0), 0) / withLoc.length
-    const lng = withLoc.reduce((s, e) => s + (e.location!.lng || 0), 0) / withLoc.length
+    const [latC, lngC] = key.split(',')
+    const lat = Number(latC) * CELL
+    const lng = Number(lngC) * CELL
     const catCounts = new Map<EventCategory, number>()
     for (const e of evs) {
       catCounts.set(e.category, (catCounts.get(e.category) || 0) + 1)
     }
     groups.push({
-      country,
+      country: evs.find(e => e.country)?.country ?? null,
       lat,
       lng,
       total: evs.length,

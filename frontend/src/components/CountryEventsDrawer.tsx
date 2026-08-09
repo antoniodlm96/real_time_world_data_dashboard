@@ -20,7 +20,7 @@ export default function CountryEventsDrawer({ group, onClose }: { group: Country
       <div className="relative w-96 max-w-[85vw] h-full bg-gray-900 border-l border-gray-700 shadow-2xl pointer-events-auto drawer-slide-in overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 bg-gray-800/60">
           <div>
-            <h3 className="text-lg font-bold text-white leading-tight">{group.country}</h3>
+            <h3 className="text-lg font-bold text-white leading-tight">{group.country || 'Events in this area'}</h3>
             <p className="text-xs text-gray-400">{group.total} events</p>
           </div>
           <button

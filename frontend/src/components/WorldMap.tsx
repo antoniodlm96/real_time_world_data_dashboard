@@ -143,7 +143,7 @@ function EventMarkers({ events, activeLayers, onSelectGroup }: { events: Unified
           >
             <Popup>
               <div className="text-sm max-w-[200px]">
-                <strong className="text-gray-900">{g.country}</strong>
+                <strong className="text-gray-900">{g.country || 'Events'}</strong>
                 <p className="text-gray-600 mt-1">{g.total} events</p>
                 <p className="text-gray-500 text-xs mt-1">Click to view all events</p>
               </div>
