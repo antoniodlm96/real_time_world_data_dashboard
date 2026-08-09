@@ -19,3 +19,11 @@ body {
 .marker-cluster-medium div { background-color: rgba(245, 158, 11, 0.6); }
 .marker-cluster-large { background-color: rgba(239, 68, 68, 0.4); }
 .marker-cluster-large div { background-color: rgba(239, 68, 68, 0.6); }
+
+@keyframes drawerSlideIn {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.drawer-slide-in {
+  animation: drawerSlideIn 0.25s ease-out;
+}

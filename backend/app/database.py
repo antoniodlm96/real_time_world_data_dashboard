@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timezone
 
 from backend.app.config import settings
+from backend.app.sources.country_coords import extract_country as _extract_country
 
 DB_TYPE = settings.db_type
 DB_PATH = settings.db_path
@@ -719,6 +720,7 @@ async def get_events_from_db(category: str | None = None, hours: int | None = No
                 "title": r["title"],
                 "description": r["description"],
                 "location": {"lat": r["lat"], "lng": r["lng"], "place": r["place"]},
+                "country": _extract_country(r["place"]),
                 "magnitude": r["magnitude"],
                 "timestamp": r["event_timestamp"],
                 "source": r["source"],

@@ -13,6 +13,7 @@ import Legend from './components/Legend'
 import TimeFilter from './components/TimeFilter'
 import CiiPanel from './components/CiiPanel'
 import PredictionPanel from './components/PredictionPanel'
+import CountryEventsDrawer from './components/CountryEventsDrawer'
 import { useEvents } from './hooks/useEvents'
 import { useMarkets } from './hooks/useMarkets'
 import { useWebcams } from './hooks/useWebcams'
@@ -28,6 +29,7 @@ import { usePrediction } from './hooks/usePrediction'
 import { useInfrastructure } from './hooks/useInfrastructure'
 import { useCascades } from './hooks/useCascades'
 import type { LayerKey, UnifiedEvent } from './types'
+import type { CountryGroup } from './utils/groupEvents'
 
 const LazyGlobeMap = lazy(() => import('./components/GlobeMap'))
 
@@ -54,6 +56,7 @@ export default function App() {
   )
   const [panel, setPanel] = useState<PanelKey>('events')
   const [mapMode, setMapMode] = useState<'globe' | 'flat'>('globe')
+  const [selectedGroup, setSelectedGroup] = useState<CountryGroup | null>(null)
 
   const toggleLayer = useCallback((layer: LayerKey) => {
     setActiveLayers(prev => {
@@ -276,6 +279,7 @@ export default function App() {
                   gpsjam={gpsjam}
                   infrastructure={infrastructure}
                   cascades={cascades}
+                  onSelectGroup={setSelectedGroup}
                 />
                 </Suspense>
               ) : (
@@ -291,8 +295,10 @@ export default function App() {
                   gpsjam={gpsjam}
                   infrastructure={infrastructure}
                   cascades={cascades}
+                  onSelectGroup={setSelectedGroup}
                 />
               )}
+              <CountryEventsDrawer group={selectedGroup} onClose={() => setSelectedGroup(null)} />
             </div>
 
             <button

@@ -88,6 +88,16 @@ COUNTRY_COORDS: dict[str, tuple[float, float]] = {
 }
 
 
+def extract_country(location: str | None) -> str | None:
+    if not location or location == "Unknown":
+        return None
+    low = location.lower()
+    for name in COUNTRY_COORDS:
+        if name.lower() in low:
+            return name
+    return None
+
+
 def lookup_location(location: str) -> tuple[float, float] | None:
     if not location or location == "Unknown":
         return None

@@ -14,6 +14,7 @@ import type {
   CascadeAlert,
   CiiScore,
 } from '../types'
+import { groupEventsByCountry, categoryOffset, type CountryGroup } from '../utils/groupEvents'
 
 const TEXTURE = `${import.meta.env.BASE_URL}textures/earth-topo-bathy.jpg`
 const BG_TEXTURE = `${import.meta.env.BASE_URL}textures/night-sky.png`
@@ -45,6 +46,8 @@ interface GlobeMarker {
   detail?: string
   icon?: string
   size?: number
+  count?: number
+  _onClick?: () => void
 }
 
 function buildMarkerElement(m: GlobeMarker): HTMLElement {
@@ -59,13 +62,24 @@ function buildMarkerElement(m: GlobeMarker): HTMLElement {
     dot.innerHTML = `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${m.color}" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"><path d="${m.icon}"/></svg>`
   } else {
     dot.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${m.color};`
-    if (m._kind === 'conflict' || m._kind === 'disaster' || m._kind === 'cyber') {
+    if (m._kind === 'conflict' || m._kind === 'disaster' || m._kind === 'cyber' || m._kind === 'group') {
       dot.style.border = '2px solid rgba(255,255,255,0.85)'
       dot.style.boxShadow = `0 0 ${Math.min(18, size)}px ${m.color}`
     }
   }
   dot.style.filter = 'drop-shadow(0 0 3px rgba(0,0,0,0.7))'
   wrap.appendChild(dot)
+
+  if (m.count != null) {
+    const badge = document.createElement('div')
+    badge.textContent = String(m.count)
+    badge.style.cssText =
+      'position:absolute;top:-6px;right:-8px;min-width:16px;height:16px;border-radius:8px;' +
+      'background:#111;border:1px solid rgba(255,255,255,0.9);color:#fff;' +
+      'font:700 10px/15px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
+      'text-align:center;padding:0 3px;box-shadow:0 0 6px rgba(0,0,0,0.7);z-index:11;'
+    wrap.appendChild(badge)
+  }
 
   const tip = document.createElement('div')
   tip.textContent = m.label
@@ -78,6 +92,12 @@ function buildMarkerElement(m: GlobeMarker): HTMLElement {
 
   wrap.addEventListener('mouseenter', () => { tip.style.opacity = '1' })
   wrap.addEventListener('mouseleave', () => { tip.style.opacity = '0' })
+  if (m._onClick) {
+    wrap.addEventListener('click', e => {
+      e.stopPropagation()
+      m._onClick?.()
+    })
+  }
   return wrap
 }
 
@@ -93,6 +113,7 @@ interface GlobeMapProps {
   gpsjam?: GpsJamHex[]
   infrastructure?: InfrastructureItem[]
   cascades?: CascadeAlert[]
+  onSelectGroup?: (g: CountryGroup) => void
 }
 
 const INFRA_ICONS: Record<string, string> = {
@@ -122,6 +143,7 @@ export default function GlobeMap({
   gpsjam = [],
   infrastructure = [],
   cascades = [],
+  onSelectGroup,
 }: GlobeMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const globeRef = useRef<GlobeInstance | null>(null)
@@ -203,7 +225,24 @@ export default function GlobeMap({
     const layers = layersRef.current
 
     if (layers.has('disaster') || layers.has('conflict') || layers.has('cyber')) {
-      for (const e of events) {
+      const { groups, singles } = groupEventsByCountry(events)
+      for (const g of groups) {
+        g.categories.forEach(({ category, count }, idx) => {
+          if (!layers.has(category as LayerKey)) return
+          const [latOff, lngOff] = categoryOffset(idx)
+          markers.push({
+            _kind: 'group',
+            _lat: g.lat + latOff,
+            _lng: g.lng + lngOff,
+            color: CATEGORY_COLORS[category] || '#6b7280',
+            label: `${g.country} · ${count} ${category}`,
+            size: 14,
+            count,
+            _onClick: () => onSelectGroup?.(g),
+          })
+        })
+      }
+      for (const e of singles) {
         if (!e.location) continue
         if (!layers.has(e.category as LayerKey)) continue
         markers.push({

@@ -10,6 +10,7 @@ export interface UnifiedEvent {
   title: string
   description?: string
   location?: EventLocation
+  country?: string
   magnitude?: number
   timestamp: string
   source: string

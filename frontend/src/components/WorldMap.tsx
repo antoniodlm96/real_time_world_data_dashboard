@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, Polygon, useMap } from 'react-leaflet'
+import { useMemo } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, Polygon } from 'react-leaflet'
 import L from 'leaflet'
 import { cellToBoundary } from 'h3-js'
 import type { UnifiedEvent, LayerKey, Webcam, RadioStation, Flight, Fire, WeatherEntry, GpsJamHex, InfrastructureItem, CascadeAlert, CiiScore } from '../types'
+import { groupEventsByCountry, categoryOffset, type CountryGroup } from '../utils/groupEvents'
 
 const categoryColors: Record<string, string> = {
   disaster: '#ff2222',
@@ -14,6 +15,40 @@ const shapes: Record<string, string> = {
   disaster: 'circle',
   conflict: 'diamond',
   cyber: 'triangle',
+}
+
+function createGroupIcon(color: string, shape: string, count: number) {
+  const size = 16
+  const half = size / 2
+  const border = 2
+  const bColor = 'rgba(255,255,255,0.9)'
+  const glow = 14
+  let inner: string
+  if (shape === 'diamond') {
+    inner = `width:${size}px;height:${size}px;background:${color};transform:rotate(45deg);
+      border:${border}px solid ${bColor};
+      box-shadow:0 0 ${glow}px ${color}, 0 0 4px rgba(0,0,0,0.6);`
+  } else if (shape === 'triangle') {
+    inner = `width:0;height:0;border-left:${half}px solid transparent;border-right:${half}px solid transparent;
+      border-bottom:${size}px solid ${color};
+      filter:drop-shadow(0 0 ${glow / 2}px ${color}) drop-shadow(0 0 2px rgba(0,0,0,0.6));`
+  } else {
+    inner = `width:${size}px;height:${size}px;border-radius:50%;background:${color};
+      border:${border}px solid ${bColor};
+      box-shadow:0 0 ${glow}px ${color}, 0 0 4px rgba(0,0,0,0.6);`
+  }
+  const pad = border * 2 + 2
+  return L.divIcon({
+    className: '',
+    html: `<div style="position:relative;width:${size + pad}px;height:${size + pad}px">
+      <div style="${inner}"></div>
+      <div style="position:absolute;top:-6px;right:-8px;min-width:16px;height:16px;border-radius:8px;
+        background:#111;border:1px solid ${bColor};color:#fff;font:700 10px/15px -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+        text-align:center;padding:0 3px;box-shadow:0 0 6px rgba(0,0,0,0.7);">${count}</div>
+    </div>`,
+    iconSize: [size + pad + 8, size + pad + 6],
+    iconAnchor: [half + pad / 2, half + pad / 2],
+  })
 }
 
 function createIcon(color: string, shape: string, magnitude?: number | null, borderColor?: string) {
@@ -82,17 +117,41 @@ interface WorldMapProps {
   gpsjam?: GpsJamHex[]
   infrastructure?: InfrastructureItem[]
   cascades?: CascadeAlert[]
+  onSelectGroup?: (g: CountryGroup) => void
 }
 
-function EventMarkers({ events, activeLayers }: { events: UnifiedEvent[]; activeLayers: Set<LayerKey> }) {
-  const filtered = useMemo(
-    () => events.filter(e => e.location && activeLayers.has(e.category as LayerKey)),
-    [events, activeLayers]
-  )
+function EventMarkers({ events, activeLayers, onSelectGroup }: { events: UnifiedEvent[]; activeLayers: Set<LayerKey>; onSelectGroup: (g: CountryGroup) => void }) {
+  const { groups, singles } = useMemo(() => {
+    const filtered = events.filter(e => e.location && activeLayers.has(e.category as LayerKey))
+    return groupEventsByCountry(filtered)
+  }, [events, activeLayers])
 
   return (
     <>
-      {filtered.map(event => (
+      {groups.map(g => g.categories.map(({ category, count }, idx) => {
+        const [latOff, lngOff] = categoryOffset(idx)
+        return (
+          <Marker
+            key={`${g.country}-${category}`}
+            position={[g.lat + latOff, g.lng + lngOff]}
+            icon={createGroupIcon(
+              categoryColors[category] || '#6b7280',
+              shapes[category] || 'circle',
+              count,
+            )}
+            eventHandlers={{ click: () => onSelectGroup(g) }}
+          >
+            <Popup>
+              <div className="text-sm max-w-[200px]">
+                <strong className="text-gray-900">{g.country}</strong>
+                <p className="text-gray-600 mt-1">{g.total} events</p>
+                <p className="text-gray-500 text-xs mt-1">Click to view all events</p>
+              </div>
+            </Popup>
+          </Marker>
+        )
+      }))}
+      {singles.map(event => (
         <Marker
           key={event.id}
           position={[event.location!.lat, event.location!.lng]}
@@ -379,7 +438,7 @@ function CiiLayer({ scores, visible }: { scores: CiiScore[]; visible: boolean })
   )
 }
 
-export default function WorldMap({ events, activeLayers, webcams = [], radioStations = [], flights = [], fires = [], weather = [], cii = [], gpsjam = [], infrastructure = [], cascades = [] }: WorldMapProps) {
+export default function WorldMap({ events, activeLayers, webcams = [], radioStations = [], flights = [], fires = [], weather = [], cii = [], gpsjam = [], infrastructure = [], cascades = [], onSelectGroup }: WorldMapProps) {
   return (
     <MapContainer
       center={[20, 0]}
@@ -391,7 +450,7 @@ export default function WorldMap({ events, activeLayers, webcams = [], radioStat
         attribution='&copy; <a href="https://carto.com/">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
-      <EventMarkers events={events} activeLayers={activeLayers} />
+      <EventMarkers events={events} activeLayers={activeLayers} onSelectGroup={onSelectGroup ?? (() => {})} />
       <WebcamMarkers webcams={webcams} visible={activeLayers.has('webcam')} />
       <RadioMarkers stations={radioStations} visible={activeLayers.has('radio')} />
       <FlightMarkers flights={flights} visible={activeLayers.has('flights')} />
