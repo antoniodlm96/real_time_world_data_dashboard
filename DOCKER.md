@@ -1,6 +1,6 @@
 # DOCKER.md — Despliegue con Docker
 
-Guía completa del entorno contenedorizado del **Real Time World Data Dashboard**: qué contiene, cómo instalarlo y cómo arrancarlo.
+Guía completa del entorno contenedorizado del **Real Time World Data Dashboard**: qué contiene, cómo instalarlo, cómo arrancarlo y cómo se despliega en producción.
 
 ---
 
@@ -9,10 +9,14 @@ Guía completa del entorno contenedorizado del **Real Time World Data Dashboard*
 `docker-compose.yml` orquesta **4 servicios**. A diferencia del desarrollo local (SQLite), el despliegue en Docker usa **PostgreSQL** como base de datos persistente y **Redis** como caché.
 
 ```
+                          Cliente (navegador)
+                                 │  https://myserver.tail6b3a21.ts.net/dashboard/
+                                 ▼  (Tailscale HTTPS — elimina el prefijo /dashboard)
                                             ┌────────────────────────────┐
                                             │  frontend (nginx :3000)    │
-                                            │  /      → estáticos React  │
-                                            │  /api/* → proxy a backend  │
+                                            │  /          → estáticos    │
+                                            │  /api/*     → proxy backend │
+                                            │  /dashboard/api/* → backend│
                                             └──────────────┬─────────────┘
                                                            │ /api
                                             ┌──────────────▼─────────────┐
@@ -29,30 +33,33 @@ Guía completa del entorno contenedorizado del **Real Time World Data Dashboard*
 
 | Servicio | Imagen | Puerto host | Descripción |
 |----------|--------|-------------|-------------|
-| `postgres` | `postgres:16-alpine` | `5432` | Base de datos principal (datos persistentes) |
-| `redis` | `redis:7-alpine` | `6379` | Caché en memoria de las APIs externas |
-| `backend` | build `./backend` | `8000` | API FastAPI + loop de ingestión en segundo plano |
-| `frontend` | build `./frontend` | `3000` | Build estático de React servido por nginx (proxya `/api` al backend) |
+| `postgres` | `postgres:16-alpine` | *(solo red interna)* | Base de datos principal (datos persistentes) |
+| `redis` | `redis:7-alpine` | *(solo red interna)* | Caché en memoria de las APIs externas |
+| `backend` | build `./backend` | `127.0.0.1:8000` | API FastAPI + loop de ingestión en segundo plano |
+| `frontend` | build `./frontend` | `127.0.0.1:3000` | Build estático de React servido por nginx (proxya `/api` al backend) |
+
+> Los puertos de `postgres` (5432) y `redis` (6379) **no se publican en el host**: solo son accesibles dentro de la red Docker. Los puertos `3000` y `8000` solo escuchan en `127.0.0.1` (no en `0.0.0.0`). El acceso externo pasa siempre por **Tailscale** (`tailscale serve`), que enruta `/dashboard` → `127.0.0.1:3000` y el dominio raíz → `127.0.0.1:8080` (Homepage).
 
 ### Campos clave del `docker-compose.yml`
 
-- **`postgres`** crea automáticamente el usuario/BD `dashboard` / `dashboard`, con la contraseña **`POSTGRES_PASSWORD`** leída del `.env` (obligatoria; el compose falla si no está definida). Expone un healthcheck con `pg_isready`.
+- **`postgres`** crea automáticamente el usuario/BD `dashboard`, con la contraseña **`POSTGRES_PASSWORD`** leída del `.env` (obligatoria; el compose falla si no está definida). Expone un healthcheck con `pg_isready`.
 - **`redis`** incluye healthcheck con `redis-cli ping`.
-- **`backend`** arranca solo cuando `postgres` y `redis` están sanos (`service_healthy`). Recibe las variables `DASHBOARD_DB_TYPE=postgres` y `DASHBOARD_DATABASE_URL` apuntando al contenedor `postgres`, no a `localhost`.
-- **`frontend`** se construye en dos etapas (build de Node 24 → imagen final nginx) y copia `nginx.conf`, que enruta `/api/*` hacia `backend:8000`.
+- **`backend`** arranca solo cuando `postgres` y `redis` están sanos (`service_healthy`). Recibe `DASHBOARD_DB_TYPE=postgres` y `DASHBOARD_DATABASE_URL` apuntando al contenedor `postgres`, no a `localhost`. Carga variables extra desde `.env` opcionalmente (`env_file.required: false`).
+- **`frontend`** se construye en dos etapas (build de Node 24 → imagen final nginx), copia `nginx.conf` y añade **labels de Homepage** (`homelab.*`) para que aparezca en el launcher bajo `/dashboard/`.
 - Volúmenes nombrados: `pg_data` (PostgreSQL) y `redis_data` (Redis). Sobreviven a `docker compose down`.
 
 ### archivo `frontend/nginx.conf`
 
-Necesario porque el frontend hace peticiones **relativas** a `/api/`. En desarrollo lo resuelve el proxy de Vite; en producción lo resuelve nginx:
+El build de Vite usa `base: '/dashboard/'`, de modo que los assets se referencian como `/dashboard/assets/...`. Sin embargo, **Tailscale elimina el prefijo `/dashboard`** antes de proxyar a `:3000`, así que nginx sirve los estáticos desde la **raíz** (`/usr/share/nginx/html`) y mantiene ambos enrutados de API:
 
 ```nginx
-location /api/ {
-    proxy_pass http://backend:8000;
-    proxy_set_header Host $host;
-    proxy_read_timeout 90s;
-}
+location /dashboard/api/ { proxy_pass http://backend:8000/api/; ... }
+location /api/           { proxy_pass http://backend:8000; ... }
+location /dashboard/     { try_files $uri $uri/ /dashboard/index.html; }
+location /               { try_files $uri $uri/ /index.html; }
 ```
+
+El frontend deriva la base de la API de `import.meta.env.BASE_URL` (`/dashboard/api`) en `frontend/src/api.ts`, usado por todos los hooks (ver `ARCHITECTURE.md` → *Frontend*).
 
 ---
 
@@ -101,7 +108,7 @@ DASHBOARD_FIRMS_API_KEY=tu_clave_de_nasa_firms
 - **NASA FIRMS** activa el nivel de incendios en el mapa.
 - **Sin las claves de API**: el backend arranca igualmente, solo se desactivan esos extras (el bloque `required: false` lo permite).
 
-> Ojo: el `./backend/app/config.py` prefiere `DASHBOARD_` como prefijo para toda variable de entorno.
+> Ojo: el `./backend/app/config.py` prefiere `DASHBOARD_` como prefijo para toda variable de entorno y define `extra: "ignore"`, de modo que variables sin ese prefijo (como `POSTGRES_PASSWORD`) se ignoran sin fallar.
 
 ### 3) Construye y levanta
 
@@ -136,19 +143,26 @@ curl http://localhost:8000/api/health
 curl http://localhost:8000/api/status
 ```
 
-Abre el dashboard en el navegador: **http://localhost:3000**
+Abre el dashboard en el navegador:
+
+- Despliegue detrás de Tailscale: **https://myserver.tail6b3a21.ts.net/dashboard/**
+- Directo en la máquina: **http://localhost:3000/dashboard/**
 
 ---
 
 ## 5. URLs de acceso
 
+En producción (myserver) el tráfico entra por **Tailscale HTTPS** (`tailscale serve`), que reescribe las rutas:
+
 | Servicio | URL |
 |----------|-----|
-| Frontend (dashboard) | http://localhost:3000 |
-| API backend | http://localhost:8000 |
-| Swagger UI (docs de la API) | http://localhost:8000/docs |
-| PostgreSQL (desde tu máquina) | `localhost:5432` · `dashboard` / `dashboard` |
-| Redis (desde tu máquina) | `localhost:6379` |
+| Dashboard (frontend) | `https://myserver.tail6b3a21.ts.net/dashboard/` |
+| Homepage (launcher) | `https://myserver.tail6b3a21.ts.net/` |
+| API backend (host, local) | `http://localhost:8000` |
+| Frontend (host, local) | `http://localhost:3000/dashboard/` |
+| Swagger UI (docs de la API) | `http://localhost:8000/docs` |
+| PostgreSQL | Solo red Docker (`postgres:5432`) · `dashboard` / `POSTGRES_PASSWORD` |
+| Redis | Solo red Docker (`redis:6379`) |
 
 ### Endpoints principales de la API
 
@@ -172,11 +186,13 @@ Abre el dashboard en el navegador: **http://localhost:3000**
 | PATCH | `/api/webcams/{id}/deactivate` | Desactivar webcam |
 | GET | `/api/radio` · `/api/radio/countries` | Emisoras de radio |
 
+> En el frontend desplegado tras Tailscale, todos los endpoints se sirven bajo `/dashboard/api/…` (p. ej. `https://myserver.tail6b3a21.ts.net/dashboard/api/status`).
+
 ---
 
 ## 6. Configuración (variables de entorno)
 
-Todas con prefijo `DASHBOARD_`. Las define `backend/app/config.py`.
+Todas con prefijo `DASHBOARD_` (condiciones en `backend/app/config.py`; `extra: "ignore"` deja pasar las demás).
 
 | Variable | Por defecto (Docker) | Uso |
 |----------|----------------------|-----|
@@ -189,6 +205,11 @@ Todas con prefijo `DASHBOARD_`. Las define `backend/app/config.py`.
 | `DASHBOARD_FIRMS_API_KEY` | *(del `.env`)* | Incendios (NASA FIRMS) |
 | `DASHBOARD_DB_PATH` | `data/dashboard.db` | Sólo si `DB_TYPE=sqlite` |
 | `DASHBOARD_API_PREFIX` | `/api` | Prefijo de los endpoints |
+| `DASHBOARD_CACHE_TTL_EARTHQUAKE` | `300` | Caché de terremotos (s) |
+| `DASHBOARD_CACHE_TTL_GDELT` | `900` | Caché de noticias (s) |
+| `DASHBOARD_CACHE_TTL_CRYPTO` | `60` | Caché de criptomonedas (s) |
+| `DASHBOARD_CACHE_TTL_FOREX` | `43200` | Caché de divisas (s) |
+| `DASHBOARD_CACHE_TTL_WEATHER` | `900` | Caché de clima (s) |
 
 Para invalidar en tiempo de ejecución (sin editar el compose):
 
@@ -259,29 +280,88 @@ docker compose restart backend
 
 ## 10. Flujo de datos internos
 
-- Nginx (frontend :3000) → `/api/*` → backend (FastAPI :8000).
-- Backend cachéa respuestas externas en Redis (TTL por fuente: terremotos 5 min, GDELT 15 min, crypto 1 min, forex 12 h).
+- El SPA (React) consulta `/dashboard/api/*` → nginx reescribe a `/api/*` → backend (FastAPI :8000).
+- Backend cachéa respuestas externas en Redis con TTL por fuente:
+
+| Clave Redis | Fuente | TTL |
+|--------------|--------|-----|
+| `usgs:earthquakes` | USGS | 5 min |
+| `coingecko:crypto_markets` | CoinGecko | 1 min |
+| `frankfurter:latest` | Frankfurter (forex) | 12 h |
+| `news:all_feeds` | RSS noticias | 15 min |
+| `openmeteo:all_cities` | Open-Meteo (clima) | 15 min |
+
 - El backend inicia una **tarea de ingestión** (`ingest.py`) que cada ~10 s consulta USGS, CoinGecko, Frankfurter, RSS de noticias, OpenSky, Open-Meteo, etc., y hace **upserts** en PostgreSQL.
 - En el arranque (`lifespan`) se ejecuta `init_db()` y se siembran las webcams y frecuencias de radio base.
 
 ---
 
-## 11. Solución de problemas
+## 11. Despliegue en producción (myserver)
+
+El despliegue en `myserver` es **automático** mediante un runner self-hosted de GitHub Actions: cualquier **push a `main`** dispara el workflow.
+
+### `.github/workflows/deploy.yml`
+
+```yaml
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: [self-hosted]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Deploy with Docker Compose
+        working-directory: /home/user/apps/real_time_world_data_dashboard
+        run: |
+          git fetch origin
+          git reset --hard origin/main
+          docker compose up --build -d
+```
+
+### Configuración del servidor
+
+- El runner corre como `user` y clona el repo en `/home/user/apps/real_time_world_data_dashboard`.
+- Ese directorio de trabajo tiene su propio `.env` (con `POSTGRES_PASSWORD`, `DASHBOARD_GROQ_API_KEY`, `DASHBOARD_FIRMS_API_KEY`), que **no** se toca en cada deploy (el `git reset --hard` no lo borra porque `.env` está en `.gitignore`).
+- `POSTGRES_PASSWORD` del `.env` se usa para interpolar el compose (`${POSTGRES_PASSWORD:?…}`). Si la cambias, además debes actualizar la contraseña del rol en PostgreSQL (`ALTER USER dashboard WITH PASSWORD '…'`).
+- Acceso externo: **Tailscale** enruta el dominio `myserver.tail6b3a21.ts.net` vía `tailscale serve`:
+
+```
+https://myserver.tail6b3a21.ts.net/                → 127.0.0.1:8080  (Homepage)
+https://myserver.tail6b3a21.ts.net/dashboard       → 127.0.0.1:3000  (frontend, reescribe /dashboard → /)
+https://myserver.tail6b3a21.ts.net:9443            → 127.0.0.1:9000  (Portainer)
+```
+
+### Desplegar manualmente
+
+```bash
+cd /home/user/apps/real_time_world_data_dashboard
+git fetch origin && git reset --hard origin/main
+docker compose up --build -d
+```
+
+---
+
+## 12. Solución de problemas
 
 | Problema | Causa / Solución |
 |----------|------------------|
 | `port is already allocated` | Puertos `3000/5432/6379/8000` ocupados. Libera o cambia el mapeo de puertos en el compose. |
-| El frontend no carga datos del mapa | Confirma que `/api/*` se proxiéa: `curl http://localhost:3000/api/health`. Si falla, revisa el `nginx.conf` `/` del frontend. |
+| El frontend no carga datos del mapa | Confirma que `/api/*` se proxiéa: `curl http://localhost:3000/api/health`. Si falla, revisa el `nginx.conf` del frontend. El SPA usa `BASE_URL/api` (`/dashboard/api` en producción). |
+| En producción aparece "Welcome to nginx" | Tailscale reescribe `/dashboard` → `/`; el dist debe estar en la **raíz** de nginx (`/usr/share/nginx/html`), no bajo `html/dashboard/`. `docker compose up --build -d`. |
+| API de clima da 429 de Open-Meteo | Se agotó la cuota diaria gratuita (10k req). Se cachéa con TTL de 15 min (`openmeteo:all_cities`); espera al reseteo (medianoche UTC). |
 | El backend no arranca | Revisa el healthcheck de BD: `docker compose logs postgres`. Espera a que `pg_isready` devuelva OK. |
 | La clasificación de noticias no funciona | Revisa que `.env` tenga `DASHBOARD_GROQ_API_KEY` y que el container lo vea: `docker compose exec backend env \| grep GROQ` |
 | Base de datos corrupta / tasa | Borra solo el volumen de datos: `docker compose down -v && docker compose up -d` |
-| Cambios en el código que no se reflejan | Reconstruye las imágenes con `docker compose up --build -d` |
+| Cambios en el código que no se reflejan | Reconstruye las imágenes con `docker compose up --build -d`, o haz un push a `main` para desplegar. |
 
 ---
 
-## 12. Alternativas: ejecutar sin Docker (desarrollo)
+## 13. Alternativas: ejecutar sin Docker (desarrollo)
 
-Sin Docker puedes correr el stack con **SQLite** (sin PostgreSQL, sin Redis; la caché cae a fallback):
+Sin Docker puedes correr el stack con **SQLite** (sin PostgreSQL); la caché de Redis solo se activa si `REDIS_URL` apunta a un Redis accesible (si no, cada ciclo consulta las APIs directamente):
 
 ```bash
 # Terminal 1 — backend (usa SQLite en data/dashboard.db)
