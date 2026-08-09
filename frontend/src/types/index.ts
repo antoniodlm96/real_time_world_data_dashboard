@@ -81,6 +81,7 @@ export interface NewsArticle {
   published_at: string
   category?: string
   translated_title?: string
+  cluster_id?: string
 }
 
 export interface RadioStation {
@@ -175,4 +176,80 @@ export interface WeatherEntry {
   timestamp: string
 }
 
-export type LayerKey = 'disaster' | 'conflict' | 'cyber' | 'webcam' | 'radio' | 'flights' | 'fires' | 'weather'
+export type LayerKey = 'disaster' | 'conflict' | 'cyber' | 'webcam' | 'radio' | 'flights' | 'fires' | 'weather' | 'cii' | 'gpsjam' | 'infrastructure' | 'cascades' | 'prediction'
+
+export interface CiiScore {
+  country: string
+  score: number
+  severity: 'critical' | 'high' | 'medium' | 'low'
+  provenance: string
+  components: { conflict: number; disaster: number; cyber: number; weather: number; news: number }
+  counts: { conflict: number; disaster: number; cyber: number }
+  lat?: number
+  lng?: number
+}
+
+export interface PredictionOutcome {
+  name: string
+  price?: number
+}
+
+export interface PredictionMarket {
+  id: string
+  condition_id?: string
+  question: string
+  slug?: string
+  outcomes: PredictionOutcome[]
+  volume24hr: number
+  end_date?: string
+  last_trade_price?: string
+  category?: string
+  url?: string
+}
+
+export interface GpsJamHex {
+  h3: string
+  lat?: number
+  lng?: number
+  level: 'high' | 'medium' | 'low'
+  pct: number
+  affectedAircraft: number
+  totalAircraft: number
+  region: string
+}
+
+export interface InfrastructureItem {
+  id: string
+  type: 'port' | 'military' | 'pipeline' | 'cable' | 'chokepoint'
+  label: string
+  lat: number
+  lng: number
+  country: string
+  criticality: number
+}
+
+export interface CascadeAlert {
+  id: string
+  title: string
+  description: string
+  lat: number
+  lng: number
+  severity: 'critical' | 'high' | 'medium' | 'low'
+  distance_km: number
+  events: string[]
+  categories: string[]
+  timestamp: string
+}
+
+export interface SourceHealth {
+  name: string
+  status: 'ok' | 'stale' | 'unknown'
+  last_success?: string
+  last_failure?: string
+  last_attempt?: string
+  age_min?: number
+  max_stale_min: number
+  source_version: string
+  success_count: number
+  failure_count: number
+}

@@ -146,6 +146,7 @@ def _ddl_statements() -> list[str]:
             published_at TEXT NOT NULL,
             category TEXT,
             translated_title TEXT,
+            cluster_id TEXT,
             ingested_at TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -272,6 +273,14 @@ async def init_db():
                     pass
         try:
             await db.execute("ALTER TABLE news ADD COLUMN translated_title TEXT")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE news ADD COLUMN cluster_id TEXT")
+        except Exception:
+            pass
+        try:
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_news_cluster ON news(cluster_id)")
         except Exception:
             pass
         await db.commit()
@@ -619,6 +628,7 @@ async def get_news(
                 "published_at": r["published_at"],
                 "category": r["category"],
                 "translated_title": r["translated_title"],
+                "cluster_id": r["cluster_id"],
                 "created_at": r["created_at"],
                 "updated_at": r["updated_at"],
             })

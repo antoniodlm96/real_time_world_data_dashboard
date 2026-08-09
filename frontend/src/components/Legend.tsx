@@ -7,6 +7,10 @@ const items: { key: string; label: string; color: string; shape: string }[] = [
   { key: 'flights', label: 'Flights', color: '#a78bfa', shape: 'flights' },
   { key: 'fires', label: 'Fires', color: '#ff6600', shape: 'fires' },
   { key: 'weather', label: 'Weather', color: '#60a5fa', shape: 'weather' },
+  { key: 'cii', label: 'CII', color: '#ffd700', shape: 'circle' },
+  { key: 'gpsjam', label: 'GPS Jamming', color: '#ffb300', shape: 'hex' },
+  { key: 'infrastructure', label: 'Infrastructure', color: '#94a3b8', shape: 'chokepoint' },
+  { key: 'cascades', label: 'Cross-signals', color: '#f43f5e', shape: 'cascade' },
 ]
 
 function SvgIcon(path: string, color: string, size = 10) {

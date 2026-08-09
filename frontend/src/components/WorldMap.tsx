@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, Polygon, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import type { UnifiedEvent, LayerKey, Webcam, RadioStation, Flight, Fire, WeatherEntry } from '../types'
+import { cellToBoundary } from 'h3-js'
+import type { UnifiedEvent, LayerKey, Webcam, RadioStation, Flight, Fire, WeatherEntry, GpsJamHex, InfrastructureItem, CascadeAlert, CiiScore } from '../types'
 
 const categoryColors: Record<string, string> = {
   disaster: '#ff2222',
@@ -77,6 +78,10 @@ interface WorldMapProps {
   flights?: Flight[]
   fires?: Fire[]
   weather?: WeatherEntry[]
+  cii?: CiiScore[]
+  gpsjam?: GpsJamHex[]
+  infrastructure?: InfrastructureItem[]
+  cascades?: CascadeAlert[]
 }
 
 function EventMarkers({ events, activeLayers }: { events: UnifiedEvent[]; activeLayers: Set<LayerKey> }) {
@@ -254,7 +259,127 @@ function WeatherMarkers({ weather, visible }: { weather: WeatherEntry[]; visible
   )
 }
 
-export default function WorldMap({ events, activeLayers, webcams = [], radioStations = [], flights = [], fires = [], weather = [] }: WorldMapProps) {
+const GPSJAM_COLORS: Record<string, string> = {
+  high: '#ff2222',
+  medium: '#ffb300',
+}
+
+const CII_COLORS: Record<string, string> = {
+  critical: '#ff2222',
+  high: '#ff8a00',
+  medium: '#ffd700',
+  low: '#22c55e',
+}
+
+const INFRA_ICONS: Record<string, string> = {
+  port: 'M11 9h4v6h-4V9zm-6 0h4v6H5V9zm12 0h4v6h-4V9z',
+  military: 'M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6l8-4zm0 2.5L6 7.5v4.5c0 3.8 2.5 6.3 6 8 3.5-1.7 6-4.2 6-8V7.5l-6-3z',
+  pipeline: 'M12 3v18M8 3v18M4 3v18M16 3v18M20 3v18',
+  cable: 'M12 2a7 7 0 0 0-7 7v6a7 7 0 0 0 14 0V9a7 7 0 0 0-7-7zm0 2a5 5 0 0 1 5 5v6a5 5 0 0 1-10 0V9a5 5 0 0 1 5-5z',
+  chokepoint: 'M4 5h16v14H4zM6 7v10h12V7H6zm3 2h6v2H9V9zm0 4h6v2H9v-2z',
+}
+
+const CASCADE_ICON = markerSvg('M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm-1 5h2v6h-2V7zm0 8h2v2h-2v-2z', '#f43f5e')
+
+function GpsJamLayer({ hexes, visible }: { hexes: GpsJamHex[]; visible: boolean }) {
+  if (!visible) return null
+  return (
+    <>
+      {hexes.map(h => {
+        let boundary: [number, number][]
+        try {
+          boundary = cellToBoundary(h.h3).map(([lat, lng]) => [lat, lng] as [number, number])
+        } catch {
+          return null
+        }
+        return (
+          <Polygon
+            key={h.h3}
+            positions={boundary}
+            pathOptions={{
+              color: GPSJAM_COLORS[h.level] || '#888',
+              weight: 1,
+              fillColor: GPSJAM_COLORS[h.level] || '#888',
+              fillOpacity: 0.4,
+            }}
+          >
+            <Popup>
+              <div className="text-sm max-w-[200px]">
+                <strong className="text-gray-900">GPS interference</strong>
+                <p className="text-gray-600 mt-1">{h.pct}% of aircraft report degraded navigation</p>
+                <p className="text-gray-500 text-xs mt-1">
+                  {h.affectedAircraft} of {h.totalAircraft} aircraft · {h.region}
+                </p>
+              </div>
+            </Popup>
+          </Polygon>
+        )
+      })}
+    </>
+  )
+}
+
+function InfrastructureLayer({ items, visible }: { items: InfrastructureItem[]; visible: boolean }) {
+  if (!visible) return null
+  return (
+    <>
+      {items.map(item => (
+        <Marker key={item.id} position={[item.lat, item.lng]} icon={layerIcon(markerSvg(INFRA_ICONS[item.type] || INFRA_ICONS.chokepoint, '#94a3b8'))}>
+          <Popup>
+            <div className="text-sm max-w-[200px]">
+              <strong className="text-gray-900">{item.label}</strong>
+              <p className="text-gray-500 text-xs mt-1">{item.country}</p>
+              <p className="text-gray-500 text-xs">Criticality: {(item.criticality * 100).toFixed(0)}%</p>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  )
+}
+
+function CascadeLayer({ cascades, visible }: { cascades: CascadeAlert[]; visible: boolean }) {
+  if (!visible) return null
+  return (
+    <>
+      {cascades.map(c => (
+        <Marker key={c.id} position={[c.lat, c.lng]} icon={layerIcon(CASCADE_ICON)}>
+          <Popup>
+            <div className="text-sm max-w-[220px]">
+              <strong className="text-gray-900">{c.title}</strong>
+              <p className="text-gray-600 mt-1">{c.description}</p>
+              <p className="text-gray-500 text-xs mt-1">
+                Severity: {c.severity} · ~{c.distance_km} km
+              </p>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  )
+}
+
+function CiiLayer({ scores, visible }: { scores: CiiScore[]; visible: boolean }) {
+  if (!visible) return null
+  const mapped = scores.filter(s => s.lat != null && s.lng != null)
+  return (
+    <>
+      {mapped.map(s => (
+        <Marker key={s.country} position={[s.lat!, s.lng!]} icon={createIcon(CII_COLORS[s.severity] || '#888', 'circle', 4 + s.score / 25)}>
+          <Popup>
+            <div className="text-sm max-w-[200px]">
+              <strong className="text-gray-900">{s.country}</strong>
+              <p className="text-lg font-bold text-gray-900 mt-1">CII {s.score.toFixed(1)}</p>
+              <p className="text-gray-500 text-xs">{s.severity}</p>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
+    </>
+  )
+}
+
+export default function WorldMap({ events, activeLayers, webcams = [], radioStations = [], flights = [], fires = [], weather = [], cii = [], gpsjam = [], infrastructure = [], cascades = [] }: WorldMapProps) {
   return (
     <MapContainer
       center={[20, 0]}
@@ -272,6 +397,10 @@ export default function WorldMap({ events, activeLayers, webcams = [], radioStat
       <FlightMarkers flights={flights} visible={activeLayers.has('flights')} />
       <FireMarkers fires={fires} visible={activeLayers.has('fires')} />
       <WeatherMarkers weather={weather} visible={activeLayers.has('weather')} />
+      <CiiLayer scores={cii} visible={activeLayers.has('cii')} />
+      <GpsJamLayer hexes={gpsjam} visible={activeLayers.has('gpsjam')} />
+      <InfrastructureLayer items={infrastructure} visible={activeLayers.has('infrastructure')} />
+      <CascadeLayer cascades={cascades} visible={activeLayers.has('cascades')} />
     </MapContainer>
   )
 }

@@ -1,24 +1,19 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { RadioStation } from '../types'
 import { API_BASE } from '../api'
+import { useSmartPoll } from './useSmartPoll'
 
 export function useRadio() {
-  const [stations, setStations] = useState<RadioStation[]>([])
-  const [loading, setLoading] = useState(true)
   const [countries, setCountries] = useState<string[]>([])
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
 
-  const fetchStations = useCallback(async () => {
-    try {
-      const params = new URLSearchParams({ limit: '200' })
-      if (selectedCountry) params.set('country', selectedCountry)
-      const res = await fetch(`${API_BASE}/radio?${params}`).then(r => r.json())
-      setStations(res.stations ?? [])
-    } catch {
-      // keep old
-    } finally {
-      setLoading(false)
-    }
+  const fetcher = useCallback(async (): Promise<RadioStation[]> => {
+    const params = new URLSearchParams({ limit: '200' })
+    if (selectedCountry) params.set('country', selectedCountry)
+    const res = await fetch(`${API_BASE}/radio?${params}`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    return data.stations ?? []
   }, [selectedCountry])
 
   const fetchCountries = useCallback(async () => {
@@ -28,12 +23,11 @@ export function useRadio() {
     } catch { /* ignore */ }
   }, [])
 
-  useEffect(() => {
-    fetchStations()
-    fetchCountries()
-    const interval = setInterval(fetchStations, 60000)
-    return () => clearInterval(interval)
-  }, [fetchStations, fetchCountries])
+  const { data, loading, refresh } = useSmartPoll<RadioStation[]>(fetcher, { intervalMs: 60000 })
 
-  return { stations, loading, countries, selectedCountry, setSelectedCountry, refresh: fetchStations }
+  useEffect(() => {
+    fetchCountries()
+  }, [fetchCountries])
+
+  return { stations: data ?? [], loading, countries, selectedCountry, setSelectedCountry, refresh }
 }

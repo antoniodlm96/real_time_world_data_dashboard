@@ -26,6 +26,19 @@ interface BatchProcess {
   remaining_seconds: number
 }
 
+interface SourceHealth {
+  name: string
+  status: string
+  last_success?: string
+  last_failure?: string
+  last_attempt?: string
+  age_min?: number
+  max_stale_min: number
+  source_version: string
+  success_count: number
+  failure_count: number
+}
+
 interface StatusData {
   server_time: string
   sources: Source[]
@@ -35,6 +48,7 @@ interface StatusData {
   news_classification: { total: number; classified: number; unclassified: number; by_category: Record<string, number> }
   active_counts: { fires: number; flights: number; webcams: number; radio_online: number }
   batch_processes: BatchProcess[]
+  source_health: SourceHealth[]
   bluesky: { name: string; type: string; connected: boolean; last_event_time: string | null; last_flush_time: string | null }
 }
 
@@ -63,6 +77,7 @@ const PROCESS_LABELS: Record<string, string> = {
   check_webcams: 'Webcam Health Check',
   discover_webcams: 'Webcam Discovery',
   discover_radio: 'Radio Discovery',
+  cluster_news: 'News Clustering',
 }
 
 function formatDuration(seconds: number): string {
@@ -231,7 +246,7 @@ export default function AdminPanel() {
   if (error) return <p className="text-xs text-red-400">Error: {error}</p>
   if (!data) return null
 
-  const { sources, ai_services, database, events, news_classification, active_counts, batch_processes, bluesky } = data
+  const { sources, ai_services, database, events, news_classification, active_counts, batch_processes, bluesky, source_health } = data
 
   return (
     <div className="flex gap-4 h-full">
@@ -258,6 +273,33 @@ export default function AdminPanel() {
             <span className={`text-xs font-mono ${bluesky.connected ? 'text-green-400' : 'text-red-400'}`}>
               {bluesky.connected ? 'Connected' : 'Disconnected'}
             </span>
+          </div>
+        </Section>
+
+        <Section title="Source Health">
+          <div className="space-y-1">
+            {source_health.length === 0 && (
+              <p className="text-xs text-gray-500">No sources recorded yet.</p>
+            )}
+            {source_health.map(s => (
+              <div key={s.name} className="py-1 px-2 rounded even:bg-gray-800/50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${
+                      s.status === 'ok' ? 'bg-green-500' : 'bg-yellow-500'
+                    }`} />
+                    <span className="text-xs text-gray-300 truncate">{s.name}</span>
+                  </div>
+                  <span className={`text-[10px] font-mono ${
+                    s.status === 'ok' ? 'text-green-400' : 'text-yellow-400'
+                  }`}>{s.status}</span>
+                </div>
+                <p className="text-[10px] text-gray-500 mt-0.5 ml-4">
+                  {s.age_min != null ? `last success ${s.age_min}min ago` : 'never succeeded'}
+                  {' · '}{s.success_count} ok / {s.failure_count} fail
+                </p>
+              </div>
+            ))}
           </div>
         </Section>
 

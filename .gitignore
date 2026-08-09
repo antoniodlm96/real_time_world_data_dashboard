@@ -10,3 +10,5 @@ venv/
 *.log
 data/
 *.tsbuildinfo
+.DS_Store
+other_projects/

@@ -36,6 +36,8 @@ from backend.app.database import (
     upsert_weather_current,
 )
 from backend.app.services.news_classifier import classify_articles
+from backend.app.services.source_health import record_source
+from backend.app.services.news_clustering import apply_news_clustering
 
 logger = logging.getLogger("ingest")
 
@@ -45,6 +47,7 @@ CLASSIFY_INTERVAL = 60
 GDACS_INTERVAL = 300
 WEBCAM_DISCOVERY_INTERVAL = 3600
 RADIO_DISCOVERY_INTERVAL = 7200
+CLUSTER_INTERVAL = 600
 
 _last_run: dict[str, float] = {}
 
@@ -70,6 +73,7 @@ def get_process_status() -> list[dict]:
         ("check_webcams", WEBCAM_CHECK_INTERVAL),
         ("discover_webcams", WEBCAM_DISCOVERY_INTERVAL),
         ("discover_radio", RADIO_DISCOVERY_INTERVAL),
+        ("cluster_news", CLUSTER_INTERVAL),
     ]:
         last = _last_run.get(name)
         if last is not None:
@@ -97,6 +101,7 @@ async def ingest_all():
     for name, result in zip(tasks.keys(), results):
         if isinstance(result, Exception):
             logger.warning("%s fetch failed: %s", name, result)
+            await record_source(name, False)
             continue
         try:
             if name == "earthquakes":
@@ -105,37 +110,47 @@ async def ingest_all():
                 await upsert_crypto(result)
             elif name == "forex" and result:
                 await upsert_forex(result)
+            await record_source(name, True)
         except Exception as e:
             logger.error("%s upsert failed: %s", name, e)
+            await record_source(name, False)
 
     try:
         news = await fetch_all_news()
         await upsert_news(news)
+        await record_source("news_rss", True)
     except Exception as e:
         logger.warning("news fetch failed: %s", e)
+        await record_source("news_rss", False)
 
     try:
         fires = await fetch_fire_data()
         if fires:
             await upsert_fires(fires)
             await deactivate_old_fires({f["id"] for f in fires})
+        await record_source("nasa_firms", True)
     except Exception as e:
         logger.warning("fires fetch/upsert failed: %s", e)
+        await record_source("nasa_firms", False)
 
     try:
         flights = await fetch_flight_data()
         if flights:
             await upsert_flights(flights)
             await deactivate_old_flights({f["id"] for f in flights})
+        await record_source("opensky", True)
     except Exception as e:
         logger.warning("flights fetch/upsert failed: %s", e)
+        await record_source("opensky", False)
 
     try:
         weather = await fetch_all_weather()
         if weather:
             await upsert_weather_current(weather)
+        await record_source("openmeteo", True)
     except Exception as e:
         logger.warning("weather fetch/upsert failed: %s", e)
+        await record_source("openmeteo", False)
 
     try:
         await clean_old_events(720)
@@ -252,10 +267,26 @@ async def ingestion_loop():
                 _mark_run("classify_news")
 
             if _should_run("gdacs_rss", GDACS_INTERVAL):
-                gdacs = await fetch_gdacs_rss()
-                if gdacs:
-                    await upsert_events(gdacs)
+                try:
+                    gdacs = await fetch_gdacs_rss()
+                    if gdacs:
+                        await upsert_events(gdacs)
+                    await record_source("gdacs", True)
+                except Exception as e:
+                    logger.warning("gdacs failed: %s", e)
+                    await record_source("gdacs", False)
                 _mark_run("gdacs_rss")
+
+            if _should_run("cluster_news", CLUSTER_INTERVAL):
+                try:
+                    clustered = await apply_news_clustering(hours=24)
+                    if clustered:
+                        logger.info("news clustering: %d duplicates flagged", clustered)
+                    await record_source("news_clustering", True)
+                except Exception as e:
+                    logger.warning("news clustering failed: %s", e)
+                    await record_source("news_clustering", False)
+                _mark_run("cluster_news")
 
             if _should_run("check_webcams", WEBCAM_CHECK_INTERVAL):
                 await check_webcams()

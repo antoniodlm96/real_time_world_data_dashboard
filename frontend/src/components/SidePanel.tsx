@@ -23,6 +23,11 @@ const layerDefs: Record<LayerKey, { label: string; color: string; shape: string 
   flights: { label: 'Flights', color: '#a78bfa', shape: 'flights' },
   fires: { label: 'Fires', color: '#ff6600', shape: 'fires' },
   weather: { label: 'Weather', color: '#60a5fa', shape: 'weather' },
+  cii: { label: 'CII', color: '#ffd700', shape: 'circle' },
+  gpsjam: { label: 'GPS Jamming', color: '#ffb300', shape: 'gpsjam' },
+  infrastructure: { label: 'Infrastructure', color: '#94a3b8', shape: 'chokepoint' },
+  cascades: { label: 'Cross-signals', color: '#f43f5e', shape: 'cascade' },
+  prediction: { label: 'Prediction Markets', color: '#a3e635', shape: 'prediction' },
 }
 
 function ShapeIcon({ color, shape }: { color: string; shape: string }) {
@@ -100,7 +105,7 @@ interface SidePanelProps {
 
 export default function SidePanel({ events, activeLayers, onToggleLayer, extraLayers = {} }: SidePanelProps) {
   const eventCats: LayerKey[] = ['disaster', 'conflict', 'cyber']
-  const mapLayers: LayerKey[] = ['webcam', 'radio', 'flights', 'fires', 'weather']
+  const mapLayers: LayerKey[] = ['webcam', 'radio', 'flights', 'fires', 'weather', 'cii', 'gpsjam', 'infrastructure', 'cascades']
 
   return (
     <div className="space-y-3">

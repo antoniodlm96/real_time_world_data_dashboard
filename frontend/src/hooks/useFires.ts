@@ -1,36 +1,17 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 import type { Fire } from '../types'
 import { API_BASE } from '../api'
-
-const POLL_INTERVAL = 60000
+import { useSmartPoll } from './useSmartPoll'
 
 export function useFires() {
-  const [fires, setFires] = useState<Fire[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const fetchFires = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/fires`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      setFires(data.fires)
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to fetch fires')
-    } finally {
-      setLoading(false)
-    }
+  const fetcher = useCallback(async (): Promise<Fire[]> => {
+    const res = await fetch(`${API_BASE}/fires`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    return data.fires ?? []
   }, [])
 
-  useEffect(() => {
-    fetchFires()
-    intervalRef.current = setInterval(fetchFires, POLL_INTERVAL)
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [fetchFires])
+  const { data, loading, error, refresh } = useSmartPoll<Fire[]>(fetcher, { intervalMs: 60000 })
 
-  return { fires, loading, error, refresh: fetchFires }
+  return { fires: data ?? [], loading, error, refresh }
 }

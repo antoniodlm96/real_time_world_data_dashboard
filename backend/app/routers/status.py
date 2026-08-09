@@ -5,6 +5,7 @@ from backend.app.config import settings
 from backend.app.database import get_db
 from backend.app.ingest import get_process_status
 from backend.app.sources.bluesky import get_bluesky_status
+from backend.app.services.source_health import get_source_health
 from backend.app.log_handler import get_logs
 
 router = APIRouter(prefix="/status", tags=["status"])
@@ -99,6 +100,7 @@ async def get_status():
                 "radio_online": radio_online,
             },
             "batch_processes": get_process_status(),
+            "source_health": await get_source_health(),
             "bluesky": get_bluesky_status(),
         }
     finally:

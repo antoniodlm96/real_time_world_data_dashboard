@@ -12,6 +12,7 @@ from backend.app.cache import cache
 from backend.app.ingest import ingestion_loop
 from backend.app.sources.bluesky import bluesky_loop
 from backend.app.routers import events, markets, webcams, news, radio, flights, fires, commodities, weather, status
+from backend.app.routers import cii, gpsjam, prediction, infrastructure, cascades
 from backend.app.sources.radio_frequencies_seed import RADIO_FREQUENCIES
 from backend.app.sources.webcams_seed import SEED_WEBCAMS
 from backend.app.log_handler import get_log_handler
@@ -72,6 +73,11 @@ app.include_router(fires.router, prefix=settings.api_prefix)
 app.include_router(commodities.router, prefix=settings.api_prefix)
 app.include_router(weather.router, prefix=settings.api_prefix)
 app.include_router(status.router, prefix=settings.api_prefix)
+app.include_router(cii.router, prefix=settings.api_prefix)
+app.include_router(gpsjam.router, prefix=settings.api_prefix)
+app.include_router(prediction.router, prefix=settings.api_prefix)
+app.include_router(infrastructure.router, prefix=settings.api_prefix)
+app.include_router(cascades.router, prefix=settings.api_prefix)
 
 
 @app.get(f"{settings.api_prefix}/health")

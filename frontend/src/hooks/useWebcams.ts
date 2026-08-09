@@ -1,23 +1,18 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { Webcam } from '../types'
 import { API_BASE } from '../api'
+import { useSmartPoll } from './useSmartPoll'
 
 export function useWebcams() {
-  const [webcams, setWebcams] = useState<Webcam[]>([])
-  const [loading, setLoading] = useState(true)
   const [countries, setCountries] = useState<string[]>([])
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
 
-  const fetchWebcams = useCallback(async () => {
-    try {
-      const params = selectedCountry ? `?country=${encodeURIComponent(selectedCountry)}` : ''
-      const res = await fetch(`${API_BASE}/webcams${params}`).then(r => r.json())
-      setWebcams(res.webcams ?? [])
-    } catch {
-      // keep old data
-    } finally {
-      setLoading(false)
-    }
+  const fetcher = useCallback(async (): Promise<Webcam[]> => {
+    const params = selectedCountry ? `?country=${encodeURIComponent(selectedCountry)}` : ''
+    const res = await fetch(`${API_BASE}/webcams${params}`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    return data.webcams ?? []
   }, [selectedCountry])
 
   const fetchCountries = useCallback(async () => {
@@ -29,12 +24,11 @@ export function useWebcams() {
     }
   }, [])
 
-  useEffect(() => {
-    fetchWebcams()
-    fetchCountries()
-    const interval = setInterval(fetchWebcams, 10000)
-    return () => clearInterval(interval)
-  }, [fetchWebcams, fetchCountries])
+  const { data, loading, refresh } = useSmartPoll<Webcam[]>(fetcher, { intervalMs: 10000 })
 
-  return { webcams, loading, countries, selectedCountry, setSelectedCountry, refresh: fetchWebcams }
+  useEffect(() => {
+    fetchCountries()
+  }, [fetchCountries])
+
+  return { webcams: data ?? [], loading, countries, selectedCountry, setSelectedCountry, refresh }
 }

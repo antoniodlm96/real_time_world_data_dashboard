@@ -1,24 +1,19 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import type { NewsArticle } from '../types'
 import { API_BASE } from '../api'
+import { useSmartPoll } from './useSmartPoll'
 
 export function useNews(hours: number) {
-  const [news, setNews] = useState<NewsArticle[]>([])
-  const [loading, setLoading] = useState(true)
   const [countries, setCountries] = useState<string[]>([])
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
 
-  const fetchNews = useCallback(async () => {
-    try {
-      const params = new URLSearchParams({ hours: String(hours) })
-      if (selectedCountry) params.set('country', selectedCountry)
-      const res = await fetch(`${API_BASE}/news?${params}`).then(r => r.json())
-      setNews(res.news ?? [])
-    } catch {
-      // keep old
-    } finally {
-      setLoading(false)
-    }
+  const fetcher = useCallback(async (): Promise<NewsArticle[]> => {
+    const params = new URLSearchParams({ hours: String(hours) })
+    if (selectedCountry) params.set('country', selectedCountry)
+    const res = await fetch(`${API_BASE}/news?${params}`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    return data.news ?? []
   }, [selectedCountry, hours])
 
   const fetchCountries = useCallback(async () => {
@@ -28,12 +23,11 @@ export function useNews(hours: number) {
     } catch { /* ignore */ }
   }, [])
 
-  useEffect(() => {
-    fetchNews()
-    fetchCountries()
-    const interval = setInterval(fetchNews, 30000)
-    return () => clearInterval(interval)
-  }, [fetchNews, fetchCountries])
+  const { data, loading, refresh } = useSmartPoll<NewsArticle[]>(fetcher, { intervalMs: 30000 })
 
-  return { news, loading, countries, selectedCountry, setSelectedCountry, refresh: fetchNews }
+  useEffect(() => {
+    fetchCountries()
+  }, [fetchCountries])
+
+  return { news: data ?? [], loading, countries, selectedCountry, setSelectedCountry, refresh }
 }

@@ -1,37 +1,31 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 import type { CryptoEntry, ForexData } from '../types'
 import { API_BASE } from '../api'
+import { useSmartPoll } from './useSmartPoll'
 
-const REFRESH_INTERVAL = 10000
+interface MarketData {
+  crypto: CryptoEntry[]
+  forex: ForexData | null
+}
 
 export function useMarkets() {
-  const [crypto, setCrypto] = useState<CryptoEntry[]>([])
-  const [forex, setForex] = useState<ForexData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const fetchAll = useCallback(async () => {
-    try {
-      const [cryptoRes, forexRes] = await Promise.all([
-        fetch(`${API_BASE}/markets/crypto`).then(r => r.json()),
-        fetch(`${API_BASE}/markets/forex`).then(r => r.json()),
-      ])
-      setCrypto(cryptoRes.crypto ?? [])
-      setForex(forexRes.forex ?? null)
-    } catch {
-      // keep old data on failure
-    } finally {
-      setLoading(false)
+  const fetcher = useCallback(async (): Promise<MarketData> => {
+    const [cryptoRes, forexRes] = await Promise.all([
+      fetch(`${API_BASE}/markets/crypto`).then(r => r.json()),
+      fetch(`${API_BASE}/markets/forex`).then(r => r.json()),
+    ])
+    return {
+      crypto: cryptoRes.crypto ?? [],
+      forex: forexRes.forex ?? null,
     }
   }, [])
 
-  useEffect(() => {
-    fetchAll()
-    intervalRef.current = setInterval(fetchAll, REFRESH_INTERVAL)
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [fetchAll])
+  const { data, loading, refresh } = useSmartPoll<MarketData>(fetcher, { intervalMs: 10000 })
 
-  return { crypto, forex, loading, refresh: fetchAll }
+  return {
+    crypto: data?.crypto ?? [],
+    forex: data?.forex ?? null,
+    loading,
+    refresh,
+  }
 }

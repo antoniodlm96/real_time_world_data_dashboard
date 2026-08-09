@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import type { NewsArticle } from '../types'
 
 interface NewsPanelProps {
@@ -13,11 +14,25 @@ function formatTimeBoth(iso: string): string {
 }
 
 export default function NewsPanel({ news, countries, selectedCountry, onSelectCountry }: NewsPanelProps) {
+  const clusterCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const a of news) {
+      if (a.cluster_id) counts[a.cluster_id] = (counts[a.cluster_id] ?? 0) + 1
+    }
+    return counts
+  }, [news])
+  const clustered = news.filter(a => a.cluster_id).length
+
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-bold text-white">News</h2>
         <span className="text-xs text-gray-500">({news.length})</span>
+        {clustered > 0 && (
+          <span className="text-[10px] text-yellow-400 bg-yellow-900/30 px-1.5 py-0.5 rounded">
+            {clustered} deduplicated
+          </span>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
@@ -90,6 +105,11 @@ export default function NewsPanel({ news, countries, selectedCountry, onSelectCo
               <span className="text-gray-400">{a.source_name}</span>
               {a.source_country && <span className="text-gray-600"> · {a.source_country}</span>}
               <span className="text-gray-600"> · {formatTimeBoth(a.published_at)}</span>
+              {a.cluster_id && clusterCounts[a.cluster_id] > 1 && (
+                <span className="ml-2 text-[10px] text-yellow-400 bg-yellow-900/30 px-1.5 py-0.5 rounded">
+                  {clusterCounts[a.cluster_id]} similar
+                </span>
+              )}
             </p>
           </a>
         ))}

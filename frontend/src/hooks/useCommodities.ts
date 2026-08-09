@@ -1,34 +1,17 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 import type { CommodityEntry } from '../types'
 import { API_BASE } from '../api'
-
-const POLL_INTERVAL = 60000
+import { useSmartPoll } from './useSmartPoll'
 
 export function useCommodities() {
-  const [commodities, setCommodities] = useState<CommodityEntry[]>([])
-  const [loading, setLoading] = useState(true)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const fetchAll = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE}/markets/commodities`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      setCommodities(data.commodities ?? [])
-    } catch {
-      // keep old data
-    } finally {
-      setLoading(false)
-    }
+  const fetcher = useCallback(async (): Promise<CommodityEntry[]> => {
+    const res = await fetch(`${API_BASE}/markets/commodities`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    return data.commodities ?? []
   }, [])
 
-  useEffect(() => {
-    fetchAll()
-    intervalRef.current = setInterval(fetchAll, POLL_INTERVAL)
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [fetchAll])
+  const { data, loading, refresh } = useSmartPoll<CommodityEntry[]>(fetcher, { intervalMs: 60000 })
 
-  return { commodities, loading, refresh: fetchAll }
+  return { commodities: data ?? [], loading, refresh }
 }

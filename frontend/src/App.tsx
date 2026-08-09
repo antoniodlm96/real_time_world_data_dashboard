@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, Suspense, lazy } from 'react'
 import WorldMap from './components/WorldMap'
+import GlobeMap from './components/GlobeMap'
 import SidePanel from './components/SidePanel'
 import MarketsPanel from './components/MarketsPanel'
 import WebcamPanel from './components/WebcamPanel'
@@ -10,6 +11,8 @@ import AdminPanel from './components/AdminPanel'
 import Ticker from './components/Ticker'
 import Legend from './components/Legend'
 import TimeFilter from './components/TimeFilter'
+import CiiPanel from './components/CiiPanel'
+import PredictionPanel from './components/PredictionPanel'
 import { useEvents } from './hooks/useEvents'
 import { useMarkets } from './hooks/useMarkets'
 import { useWebcams } from './hooks/useWebcams'
@@ -19,7 +22,16 @@ import { useFlights } from './hooks/useFlights'
 import { useFires } from './hooks/useFires'
 import { useCommodities } from './hooks/useCommodities'
 import { useWeather } from './hooks/useWeather'
+import { useCii } from './hooks/useCii'
+import { useGpsJam } from './hooks/useGpsJam'
+import { usePrediction } from './hooks/usePrediction'
+import { useInfrastructure } from './hooks/useInfrastructure'
+import { useCascades } from './hooks/useCascades'
 import type { LayerKey, UnifiedEvent } from './types'
+
+const LazyGlobeMap = lazy(() => import('./components/GlobeMap'))
+
+type PanelKey = 'events' | 'markets' | 'webcams' | 'news' | 'radio' | 'clocks' | 'cii' | 'prediction' | 'admin'
 
 export default function App() {
   const [timeHours, setTimeHours] = useState(24)
@@ -32,10 +44,16 @@ export default function App() {
   const { fires, refresh: refreshFires } = useFires()
   const { commodities, refresh: refreshCommodities } = useCommodities()
   const { weather, refresh: refreshWeather } = useWeather()
+  const { scores: ciiScores, refresh: refreshCii } = useCii()
+  const { hexes: gpsjam, refresh: refreshGpsJam } = useGpsJam()
+  const { markets: predictionMarkets, refresh: refreshPrediction } = usePrediction()
+  const { items: infrastructure, refresh: refreshInfrastructure } = useInfrastructure()
+  const { cascades, refresh: refreshCascades } = useCascades()
   const [activeLayers, setActiveLayers] = useState<Set<LayerKey>>(
     new Set(['disaster', 'conflict', 'cyber'])
   )
-  const [panel, setPanel] = useState<'events' | 'markets' | 'webcams' | 'news' | 'radio' | 'clocks' | 'admin'>('events')
+  const [panel, setPanel] = useState<PanelKey>('events')
+  const [mapMode, setMapMode] = useState<'globe' | 'flat'>('globe')
 
   const toggleLayer = useCallback((layer: LayerKey) => {
     setActiveLayers(prev => {
@@ -56,6 +74,11 @@ export default function App() {
     refreshFires()
     refreshCommodities()
     refreshWeather()
+    refreshCii()
+    refreshGpsJam()
+    refreshPrediction()
+    refreshInfrastructure()
+    refreshCascades()
   }
 
   const allEvents: UnifiedEvent[] = Object.values(events).flat()
@@ -65,6 +88,10 @@ export default function App() {
     flights: flights.length,
     fires: fires.length,
     weather: weather.length,
+    cii: ciiScores.length,
+    gpsjam: gpsjam.length,
+    infrastructure: infrastructure.length,
+    cascades: cascades.length,
   }
 
   return (
@@ -173,6 +200,26 @@ export default function App() {
               >
                 Clocks
               </button>
+              <button
+                onClick={() => setPanel('cii')}
+                className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                  panel === 'cii'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                CII
+              </button>
+              <button
+                onClick={() => setPanel('prediction')}
+                className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                  panel === 'prediction'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Prediction
+              </button>
             </div>
             {panel === 'events' ? (
               <SidePanel
@@ -199,6 +246,10 @@ export default function App() {
               />
             ) : panel === 'clocks' ? (
               <WorldClocks />
+            ) : panel === 'cii' ? (
+              <CiiPanel scores={ciiScores} />
+            ) : panel === 'prediction' ? (
+              <PredictionPanel markets={predictionMarkets} />
             ) : (
               <RadioPanel
                 stations={radioStations}
@@ -211,8 +262,45 @@ export default function App() {
 
           <main className="flex-1 relative">
             <div className="absolute inset-0">
-              <WorldMap events={allEvents} activeLayers={activeLayers} webcams={webcams} radioStations={radioStations} flights={flights} fires={fires} weather={weather} />
+              {mapMode === 'globe' ? (
+                <Suspense fallback={<div className="w-full h-full bg-black flex items-center justify-center text-xs text-gray-500">Loading 3D globe…</div>}>
+                  <LazyGlobeMap
+                  events={allEvents}
+                  activeLayers={activeLayers}
+                  webcams={webcams}
+                  radioStations={radioStations}
+                  flights={flights}
+                  fires={fires}
+                  weather={weather}
+                  cii={ciiScores}
+                  gpsjam={gpsjam}
+                  infrastructure={infrastructure}
+                  cascades={cascades}
+                />
+                </Suspense>
+              ) : (
+                <WorldMap
+                  events={allEvents}
+                  activeLayers={activeLayers}
+                  webcams={webcams}
+                  radioStations={radioStations}
+                  flights={flights}
+                  fires={fires}
+                  weather={weather}
+                  cii={ciiScores}
+                  gpsjam={gpsjam}
+                  infrastructure={infrastructure}
+                  cascades={cascades}
+                />
+              )}
             </div>
+
+            <button
+              onClick={() => setMapMode(m => m === 'globe' ? 'flat' : 'globe')}
+              className="absolute top-3 right-3 z-[1000] text-xs px-3 py-1.5 rounded font-medium bg-gray-800/90 text-gray-200 border border-gray-600 hover:bg-gray-700 transition-colors"
+            >
+              {mapMode === 'globe' ? '🌐 3D Globe' : '🗺️ Flat Map'}
+            </button>
 
             <div className="absolute bottom-4 left-4 right-4 md:hidden">
               <div className="bg-gray-900/90 backdrop-blur rounded-lg p-3">
@@ -277,6 +365,26 @@ export default function App() {
                   >
                     Clocks
                   </button>
+                  <button
+                    onClick={() => setPanel('cii')}
+                    className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                      panel === 'cii'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    CII
+                  </button>
+                  <button
+                    onClick={() => setPanel('prediction')}
+                    className={`flex-1 text-xs py-1.5 rounded font-medium transition-colors ${
+                      panel === 'prediction'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300'
+                    }`}
+                  >
+                    Prediction
+                  </button>
                 </div>
                 {panel === 'events' ? (
                   <SidePanel
@@ -303,6 +411,10 @@ export default function App() {
                   />
                 ) : panel === 'clocks' ? (
                   <WorldClocks />
+                ) : panel === 'cii' ? (
+                  <CiiPanel scores={ciiScores} />
+                ) : panel === 'prediction' ? (
+                  <PredictionPanel markets={predictionMarkets} />
                 ) : (
                   <RadioPanel
                     stations={radioStations}
