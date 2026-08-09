@@ -49,6 +49,9 @@ class DB:
     async def commit(self):
         await self.conn.commit()
 
+    async def rollback(self):
+        await self.conn.rollback()
+
     async def close(self):
         await self.conn.close()
 
@@ -256,6 +259,28 @@ def _ddl_statements() -> list[str]:
     ]
 
 
+async def _column_exists(db, table, column) -> bool:
+    if DB_TYPE == "postgres":
+        cur = await db.execute(
+            "SELECT 1 FROM information_schema.columns WHERE table_name=%s AND column_name=%s",
+            (table, column),
+        )
+        row = await cur.fetchone()
+        return row is not None
+    cur = await db.execute(f"PRAGMA table_info({table})")
+    rows = await cur.fetchall()
+    return any(r["name"] == column for r in rows)
+
+
+async def _ensure_column(db, table, column, ddl: str):
+    try:
+        if not await _column_exists(db, table, column):
+            await db.execute(ddl)
+            await db.commit()
+    except Exception:
+        await db.rollback()
+
+
 async def init_db():
     db = await get_db()
     try:
@@ -266,23 +291,26 @@ async def init_db():
         now_literal = datetime.now(timezone.utc).isoformat()
         for table in ("events", "crypto", "forex", "news", "radio_stations"):
             for col in ("created_at", "updated_at"):
+                await _ensure_column(
+                    db, table, col, f"ALTER TABLE {table} ADD COLUMN {col} TEXT"
+                )
                 try:
-                    await db.execute(f"ALTER TABLE {table} ADD COLUMN {col} TEXT")
                     await db.execute(f"UPDATE {table} SET {col}=?", (now_literal,))
                 except Exception:
                     pass
-        try:
-            await db.execute("ALTER TABLE news ADD COLUMN translated_title TEXT")
-        except Exception:
-            pass
-        try:
-            await db.execute("ALTER TABLE news ADD COLUMN cluster_id TEXT")
-        except Exception:
-            pass
+        await _ensure_column(
+            db, "news", "translated_title",
+            "ALTER TABLE news ADD COLUMN translated_title TEXT",
+        )
+        await _ensure_column(
+            db, "news", "cluster_id",
+            "ALTER TABLE news ADD COLUMN cluster_id TEXT",
+        )
+        await db.rollback()
         try:
             await db.execute("CREATE INDEX IF NOT EXISTS idx_news_cluster ON news(cluster_id)")
         except Exception:
-            pass
+            await db.rollback()
         await db.commit()
     finally:
         await db.close()
