@@ -1,10 +1,19 @@
 import httpx
 from datetime import datetime, timezone
 
+from backend.app.cache import cache
 from backend.app.config import settings
 
 
 async def fetch_forex() -> dict | None:
+    return await cache.get_or_fetch(
+        "frankfurter:latest",
+        settings.cache_ttl_forex,
+        _fetch_forex_raw,
+    )
+
+
+async def _fetch_forex_raw() -> dict | None:
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.get(settings.frankfurter_url)

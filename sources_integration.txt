@@ -1,0 +1,170 @@
+Para acceder a noticias mundiales sobre **geopolítica, conflictos, finanzas, catástrofes y eventos globales**, existen dos formas de enfocar la integración por API:
+
+1. **APIs de Agregadores Globales**: Indexan miles de medidos en tiempo real (te permiten filtrar por fuente ID, país, categoría o palabras clave).
+2. **APIs Directas de Medios Oficiales/Organizaciones**: Acceso directo al feed oficial de agencias y medios globales.
+
+---
+
+## 1. Agregadores Globales de Noticias (APIs Multifuente)
+
+Si quieres acceder a docenas de medios internacionales con un único *endpoint*, estas son las mejores opciones:
+
+* **NewsAPI.org**: Una de las más populares. Permite filtrar por parámetros como `sources` (ej. `bbc-news`, `reuters`, `bloomberg`), categorías (`business`, `general`, `science`), palabras clave y países.
+* **NewsData.io**: Indexa más de 100.000 fuentes globales. Destaca por sus filtros por país, idioma, categoría y análisis de sentimiento.
+* **World News API**: Enfocada en análisis geopolítico, con geolocalización de artículos y cobertura en más de 200 países.
+* **GDELT Project API**: Base de datos masiva y **gratuita** en tiempo real respaldada por Google que monitoriza eventos globales, conflictos físicos, protestas y geopolítica en más de 100 idiomas.
+* **NewsAPI.ai (Event Registry)**: Extrae noticias, detecta eventos globales automáticos y vincula historias relacionadas de miles de medios internacionales.
+* **Mediastack**: REST API sencilla para noticias en tiempo real con soporte multilenguaje y datos estructurados en JSON.
+
+---
+
+## 2. Las Top 100 Fuentes Globales Recomendadas (Organizadas por Sector)
+
+Puedes consultar y filtrar estas fuentes directamente utilizando sus identificadores (`source_id` o dominios) en los agregadores anteriores o mediante sus APIs/RSS propios:
+
+### Agencias de Noticias Globales (Geopolítica, Última Hora, Catástrofes)
+
+1. **Reuters** *(Internacional)*
+2. **Associated Press (AP News)** *(EE.UU. / Global)*
+3. **Agence France-Presse (AFP)** *(Francia / Global)*
+4. **Bloomberg News** *(Global)*
+5. **EFE** *(España / Latinoamérica)*
+6. **United Press International (UPI)** *(EE.UU.)*
+7. **Anadolu Agency** *(Turquía / Oriente Medio)*
+8. **Kyodo News** *(Japón / Asia)*
+9. **Xinhua** *(China)*
+10. **PA Media** *(Reino Unido)*
+
+---
+
+### Geopolítica, Conflictos y Seguridad Internacional
+
+11. **BBC News** *(Reino Unido)*
+12. **Al Jazeera English** *(Qatar / Oriente Medio)*
+13. **Deutsche Welle (DW)** *(Alemania)*
+14. **France 24** *(Francia)*
+15. **Foreign Policy** *(Análisis Geopolítico)*
+16. **Foreign Affairs** *(Relaciones Internacionales)*
+17. **The Diplomat** *(Geopolítica de Asia-Pacífico)*
+18. **The Guardian** *(Reino Unido / API Propia accesible)*
+19. **The Washington Post** *(EE.UU.)*
+20. **The New York Times** *(EE.UU. / API propia de Developers)*
+21. **Politico Europe / Politico US** *(Política Global)*
+22. **Radio Free Europe / Radio Liberty (RFE/RL)** *(Europa del Este / Eurasia)*
+23. **Crisis Group** *(Análisis de Conflictos)*
+24. **Jane's Defence Weekly** *(Defensa y Militar)*
+25. **Institute for the Study of War (ISW)** *(Análisis militar y bélico)*
+26. **EURACTIV** *(Política Europea)*
+27. **Le Monde** *(Francia)*
+28. **El País** *(España / LATAM)*
+29. **Corriere della Sera** *(Italia)*
+30. **Neue Zürcher Zeitung (NZZ)** *(Suiza)*
+
+---
+
+### Finanzas, Economías y Mercados
+
+31. **Financial Times** *(Reino Unido / Global)*
+32. **The Wall Street Journal (WSJ)** *(EE.UU.)*
+33. **CNBC** *(Mercados Globales)*
+34. **MarketWatch** *(Finanzas)*
+35. **Barron's** *(Inversiones y Mercados)*
+36. **Forbes** *(Negocios y Economía)*
+37. **Fortune** *(Negocios Globales)*
+38. **Nikkei Asia** *(Economía Asiática)*
+39. **Les Echos** *(Francia)*
+40. **Handelsblatt** *(Alemania)*
+41. **Investing.com** *(Noticias Financieras)*
+42. **Seeking Alpha** *(Análisis Económico)*
+43. **Business Insider** *(Negocios)*
+44. **The Economist** *(Análisis Macroeconómico)*
+45. **Cinco Días / Expansión** *(España / Europa)*
+
+---
+
+### América del Norte (EE.UU. y Canadá)
+
+46. **CNN**
+47. **NBC News**
+48. **CBS News**
+49. **ABC News**
+50. **Fox News**
+51. **NPR (National Public Radio)** *(API propia de contenidos)*
+52. **CBC News** *(Canadá)*
+53. **The Globe and Mail** *(Canadá)*
+54. **Los Angeles Times**
+55. **Chicago Tribune**
+
+---
+
+### América Latina y Caribe
+
+56. **Infobae** *(Argentina / LATAM)*
+57. **Clarín** *(Argentina)*
+58. **La Nación** *(Argentina)*
+59. **Folha de S.Paulo** *(Brasil)*
+60. **O Globo** *(Brasil)*
+61. **El Universal** *(México)*
+62. **Milenio** *(México)*
+63. **El Tiempo** *(Colombia)*
+64. **El Comercio** *(Perú)*
+65. **La Tercera** *(Chile)*
+
+---
+
+### Europa (Oeste, Centro y Este)
+
+66. **El Mundo** *(España)*
+67. **ABC** *(España)*
+68. **La Repubblica** *(Italia)*
+69. **Le Figaro** *(Francia)*
+70. **Die Welt** *(Alemania)*
+71. **Der Spiegel** *(Alemania)*
+72. **De Telegraaf** *(Países Bajos)*
+73. **The Independent** *(Reino Unido)*
+74. **The Telegraph** *(Reino Unido)*
+75. **Ukrainska Pravda** *(Ucrania / Conflicto Ruso-Ucraniano)*
+76. **The Kyiv Independent** *(Ucrania)*
+77. **Meduza** *(Rusia / Independiente)*
+78. **TASS** *(Rusia / Agencia Estatal)*
+79. **Ria Novosti** *(Rusia)*
+80. **Rzeczpospolita** *(Polonia)*
+
+---
+
+### Oriente Medio y África
+
+81. **Haaretz** *(Israel)*
+82. **The Times of Israel** *(Israel)*
+83. **Arab News** *(Arabia Saudí)*
+84. **The National** *(EAU)*
+85. **Tehran Times** *(Irán)*
+86. **Al Arabiya** *(EAU / Oriente Medio)*
+87. **Middle East Eye** *(Oriente Medio)*
+88. **Daily News Egypt** *(Egipto)*
+89. **The Mail & Guardian** *(Sudáfrica)*
+90. **AllAfrica News** *(Agregador de África)*
+
+---
+
+### Asia-Pacífico y Oceanía
+
+91. **South China Morning Post (SCMP)** *(Hong Kong / China)*
+92. **The Times of India** *(India)*
+93. **The Hindu** *(India)*
+94. **The Japan Times** *(Japón)*
+95. **Yonhap News Agency** *(Corea del Sur)*
+96. **The Korea Herald** *(Corea del Sur)*
+97. **The Straits Times** *(Singapur)*
+98. **The Sydney Morning Herald** *(Australia)*
+99. **ABC News Australia** *(Australia)*
+100. **NZ Herald** *(Nueva Zelanda)*
+
+---
+
+## Tip de Integración para Desarrolladores
+
+Si buscas crear un pipeline estructurado:
+
+* **Para volumen/gratis**: Usa **GDELT API** (devuelve datos estructurados tipo BigQuery sobre eventos bélicos, diplomáticos y catástrofes).
+* **Para REST estándar / Prototipado**: **NewsAPI.org** o **WorldNewsAPI** permiten pasar la lista de dominios directamente en la llamada JSON (ej. `domains=bbc.co.uk,reuters.com,bloomberg.com`).

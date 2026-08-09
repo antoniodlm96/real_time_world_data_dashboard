@@ -1,6 +1,7 @@
 import httpx
 from datetime import datetime, timezone
 
+from backend.app.cache import cache
 from backend.app.config import settings
 
 
@@ -11,6 +12,14 @@ TOP_COINS = [
 
 
 async def fetch_crypto() -> list[dict]:
+    return await cache.get_or_fetch(
+        "coingecko:crypto_markets",
+        settings.cache_ttl_crypto,
+        _fetch_crypto_raw,
+    )
+
+
+async def _fetch_crypto_raw() -> list[dict]:
     params = {
         "ids": ",".join(TOP_COINS),
         "vs_currency": "usd",

@@ -1,0 +1,66 @@
+Si buscas **cámaras en directo organizadas por países** y/o un **directorio global de webcams**, un listado rígido de "sitios por país" suele quedar desactualizado rápido porque la mayoría de plataformas operan como aglomeradores multipaís.
+
+Para acceder a cualquier rincón del mundo en tiempo real, lo ideal es combinar los **mejores portales globales** con los **portales especializados por país**.
+
+---
+
+## 1. Los Grandes Directorios Globales (Filtro por País)
+
+Estos portales albergan decenas de miles de cámaras agrupadas directamente por banderas o mapas:
+
+* **EarthCam** *(Global)*: El estándar de la industria. Tiene su [mapa interactivo internacional](https://www.earthcam.com/mapsearch/) para filtrar por país y ciudad.
+* **SkylineWebcams** *(Global / Enfoque Europa/Latam)*: Excelente calidad HD en plazas, playas y zonas urbanas.
+* **Camscape** *(Global)*: Directorio activo desde 1999 estructurado por mapa y países.
+* **WorldCam.eu** *(Global)*: Plataforma europea con un buscador eficiente por país y tipo de entorno.
+* **OpenWebcamDB** *(Global)*: Directorio abierto con más de 1.400 emisorios en vivo de unos 60 países.
+* **LiveWorldWebcams**: Plataforma ligera para saltar rápidamente entre transmisiones de más de 120 países.
+
+---
+
+## 2. Portales de Webcams Organizados por País
+
+Si buscas cámaras específicas de un lugar en particular, estos son los sitios web de referencia nacional:
+
+### España
+
+* **HispaCams**: Agregador de webcams públicas de toda la geografía española.
+* **Webcams de Asturias / Galicia / Cantabria**: Portales regionales con excelente cobertura de playas y montañas del norte.
+* **SVT / DGT**: Cámaras de tráfico e infraestructuras en tiempo real.
+
+### Estados Unidos y Canadá
+
+* **ResortCams**: Especializado en destinos turísticos, playas y estaciones de esquí en EE.UU.
+* **WeatherBug Webcams**: Cámaras meteorológicas e hidrográficas en miles de condados norteamericanos.
+* **Explore.org**: Cámaras de naturaleza y vida salvaje en reservas naturales de EE.UU. y Canadá.
+
+### Reino Unido e Irlanda
+
+* **Camvista**: Cámaras urbanas en Londres, Edimburgo y zonas turísticas británicas.
+* **Traffic England / Traffic Scotland**: Red pública de tráfico urbano y carreteras.
+
+### Japón y Asia
+
+* **Fujigoko Webcams** *(Japón)*: Transmisiones en vivo enfocadas en el Monte Fuji y zonas circundantes.
+* **Live Cam Tokyo**: Directorio de cruces peatonales y rascacielos japoneses (Shinjuku, Shibuya).
+* **Hong Kong Observatory Webcams**: Cámaras de la bahía y del panorama urbano de Hong Kong.
+
+### Italia, Francia y Centroeuropa
+
+* **Bergfex** *(Austria, Suiza, Alemania, Italia)*: La mejor red para ver los Alpes, pistas de esquí y pueblos de montaña.
+* **Inforoute / France-Webcams** *(Francia)*: Cobertura de costas, infraestructuras y ciudades francesas.
+* **Meteo-System / Italia Cams** *(Italia)*: Cámaras meteorológicas y monumentos italianos.
+
+### Latinoamérica
+
+* **Webcams de México**: Una de las redes más completas del continente (cobertura en directo de volcanes como el Popocatépetl, Zócalo, playas, etc.).
+* **Cámara Luces / Brasil Webcams**: Enfoque en playas tropicales e infraestructuras urbanas.
+
+---
+
+## 3. El Recurso Oculto: YouTube Live
+
+Muchas cadenas de televisión local, ayuntamientos y particulares emiten sus cámaras las 24 horas directamente a través de YouTube en lugar de crear un sitio web independiente.
+
+Para encontrar cámaras en directo de cualquier país en YouTube, utiliza la siguiente estructura en el buscador:
+
+`[Nombre del país o ciudad] + "Live Webcam" OR "En directo"` y aplica el filtro **En directo (Live)**.

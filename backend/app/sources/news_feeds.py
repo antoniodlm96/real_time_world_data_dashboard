@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 
 import feedparser
 
+from backend.app.cache import cache
+from backend.app.config import settings
+
 logger = logging.getLogger("news")
 
 NEWS_FEEDS = [
@@ -126,13 +129,20 @@ NEWS_FEEDS = [
 NEWS_FEEDS.sort(key=lambda f: f["name"])
 
 
+FEED_TIMEOUT = 15
+
+
+async def _parse_feed(url: str, timeout: int = FEED_TIMEOUT):
+    return await asyncio.wait_for(asyncio.to_thread(feedparser.parse, url), timeout)
+
+
 async def fetch_news_from_feed(name: str, url: str, country: str, semaphore: asyncio.Semaphore | None = None) -> list[dict]:
     try:
         if semaphore:
             async with semaphore:
-                feed = await asyncio.to_thread(feedparser.parse, url)
+                feed = await _parse_feed(url)
         else:
-            feed = feedparser.parse(url)
+            feed = await _parse_feed(url)
     except Exception as e:
         logger.warning("feed parse failed %s: %s", name, e)
         return []
@@ -174,6 +184,14 @@ async def fetch_news_from_feed(name: str, url: str, country: str, semaphore: asy
 
 
 async def fetch_all_news() -> list[dict]:
+    return await cache.get_or_fetch(
+        "news:all_feeds",
+        settings.cache_ttl_gdelt,
+        _fetch_all_news_raw,
+    )
+
+
+async def _fetch_all_news_raw() -> list[dict]:
     semaphore = asyncio.Semaphore(10)
     all_articles = []
     tasks = []

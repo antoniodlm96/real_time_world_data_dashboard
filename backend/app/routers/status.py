@@ -35,38 +35,49 @@ async def get_status():
         tables = ["crypto", "events", "fires", "flights", "forex", "news", "radio_stations", "weather_current", "weather_history", "webcams"]
         counts = {}
         for t in tables:
-            cur = await db.execute(f"SELECT COUNT(*) FROM {t}")
-            counts[t] = (await cur.fetchone())[0]
+            cur = await db.execute(f"SELECT COUNT(*) AS cnt FROM {t}")
+            row = await cur.fetchone()
+            counts[t] = row["cnt"] if row else 0
 
         cur = await db.execute("SELECT category, COUNT(*) as cnt FROM news WHERE category IS NOT NULL GROUP BY category")
         news_cats = {r["category"]: r["cnt"] for r in await cur.fetchall()}
-        cur = await db.execute("SELECT COUNT(*) FROM news WHERE category IS NULL")
-        news_unclassified = (await cur.fetchone())[0]
-        cur = await db.execute("SELECT COUNT(*) FROM news")
-        news_total = (await cur.fetchone())[0]
+        cur = await db.execute("SELECT COUNT(*) AS cnt FROM news WHERE category IS NULL")
+        row = await cur.fetchone()
+        news_unclassified = row["cnt"] if row else 0
+        cur = await db.execute("SELECT COUNT(*) AS cnt FROM news")
+        row = await cur.fetchone()
+        news_total = row["cnt"] if row else 0
 
-        cur = await db.execute("SELECT COUNT(*) FROM events WHERE category='disaster'")
-        disaster_count = (await cur.fetchone())[0]
-        cur = await db.execute("SELECT COUNT(*) FROM events WHERE category='conflict'")
-        conflict_count = (await cur.fetchone())[0]
-        cur = await db.execute("SELECT COUNT(*) FROM events WHERE category='cyber'")
-        cyber_count = (await cur.fetchone())[0]
+        cur = await db.execute("SELECT COUNT(*) AS cnt FROM events WHERE category='disaster'")
+        row = await cur.fetchone()
+        disaster_count = row["cnt"] if row else 0
+        cur = await db.execute("SELECT COUNT(*) AS cnt FROM events WHERE category='conflict'")
+        row = await cur.fetchone()
+        conflict_count = row["cnt"] if row else 0
+        cur = await db.execute("SELECT COUNT(*) AS cnt FROM events WHERE category='cyber'")
+        row = await cur.fetchone()
+        cyber_count = row["cnt"] if row else 0
 
-        cur = await db.execute("SELECT COUNT(*) FROM fires WHERE is_active=1")
-        fires_active = (await cur.fetchone())[0]
-        cur = await db.execute("SELECT COUNT(*) FROM flights WHERE is_active=1")
-        flights_active = (await cur.fetchone())[0]
-        cur = await db.execute("SELECT COUNT(*) FROM webcams WHERE is_active=1")
-        webcams_active = (await cur.fetchone())[0]
-        cur = await db.execute("SELECT COUNT(*) FROM radio_stations WHERE is_online=1")
-        radio_online = (await cur.fetchone())[0]
+        cur = await db.execute("SELECT COUNT(*) AS cnt FROM fires WHERE is_active=1")
+        row = await cur.fetchone()
+        fires_active = row["cnt"] if row else 0
+        cur = await db.execute("SELECT COUNT(*) AS cnt FROM flights WHERE is_active=1")
+        row = await cur.fetchone()
+        flights_active = row["cnt"] if row else 0
+        cur = await db.execute("SELECT COUNT(*) AS cnt FROM webcams WHERE is_active=1")
+        row = await cur.fetchone()
+        webcams_active = row["cnt"] if row else 0
+        cur = await db.execute("SELECT COUNT(*) AS cnt FROM radio_stations WHERE is_online=1")
+        row = await cur.fetchone()
+        radio_online = row["cnt"] if row else 0
 
         return {
             "server_time": datetime.now(timezone.utc).isoformat(),
             "sources": SOURCES,
             "ai_services": AI_SERVICES,
             "database": {
-                "path": settings.db_path,
+                "type": settings.db_type,
+                "path": settings.database_url if settings.db_type == "postgres" else settings.db_path,
                 "table_counts": counts,
             },
             "events": {

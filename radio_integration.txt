@@ -1,0 +1,8 @@
+1. Dónde consultar todas las frecuencias del mundo en tiempo real
+
+Si buscas la frecuencia exacta de una localidad o emisora específica, estas son las bases de datos globales más completas:
+
+* **FMScan / FMLIST**: La base de datos más exhaustiva del mundo sobre frecuencias FM, AM, DAB+ y Onda Corta. Introduces tu ciudad o coordenadas y te calcula qué diales puedes sintonizar exactos desde tu posición.
+* **Radio-Locator**: Motor de búsqueda de emisoras de AM/FM con más de 17.000 fuentes indexadas y mapas de cobertura de transmisores.
+* **Shortwave.Live / Short-Wave.info**: Catálogos actualizados de emisiones en Onda Corta (SW), la banda empleada para sintonizar programas internacionales a miles de kilómetros.
+* **Radio Garden**: Un globo terráqueo interactivo que te permite explorar y escuchar miles de emisoras en vivo haciendo clic en cualquier ciudad del mapa.

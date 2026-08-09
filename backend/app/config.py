@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     cache_ttl_gdelt: int = 900
     cache_ttl_crypto: int = 60
     cache_ttl_forex: int = 43200
+    db_type: str = "postgres"
+    database_url: str = "postgresql://dashboard:dashboard@localhost:5432/dashboard"
     db_path: str = "data/dashboard.db"
     api_prefix: str = "/api"
     cors_origins: str = "http://localhost:5173"

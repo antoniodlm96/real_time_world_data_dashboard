@@ -1,218 +1,265 @@
 import hashlib
-
-import aiosqlite
 import json
 from datetime import datetime, timezone
 
 from backend.app.config import settings
 
+DB_TYPE = settings.db_type
 DB_PATH = settings.db_path
+DATABASE_URL = settings.database_url
 
 
-async def get_db() -> aiosqlite.Connection:
-    db = await aiosqlite.connect(DB_PATH)
-    db.row_factory = aiosqlite.Row
-    await db.execute("PRAGMA journal_mode=WAL")
-    return db
+def _convert_sql(sql: str) -> str:
+    if DB_TYPE == "postgres":
+        return sql.replace("?", "%s")
+    return sql
+
+
+def _time_since_sql(column: str, hours: int) -> tuple[str, list]:
+    if DB_TYPE == "postgres":
+        return f"{column}::timestamptz >= now() - interval '1 hour' * ?", [hours]
+    return f"{column} >= datetime('now', ?)", [f"-{hours} hours"]
+
+
+def _time_before_sql(column: str, hours: int) -> tuple[str, list]:
+    if DB_TYPE == "postgres":
+        return f"{column}::timestamptz < now() - interval '1 hour' * ?", [hours]
+    return f"{column} < datetime('now', ?)", [f"-{hours} hours"]
+
+
+class Cursor:
+    def __init__(self, cur):
+        self._cur = cur
+
+    async def fetchall(self):
+        return await self._cur.fetchall()
+
+    async def fetchone(self):
+        return await self._cur.fetchone()
+
+
+class DB:
+    def __init__(self, conn):
+        self.conn = conn
+
+    async def execute(self, sql: str, params: tuple = ()) -> Cursor:
+        cur = await self.conn.execute(_convert_sql(sql), tuple(params))
+        return Cursor(cur)
+
+    async def commit(self):
+        await self.conn.commit()
+
+    async def close(self):
+        await self.conn.close()
+
+
+async def get_db() -> DB:
+    if DB_TYPE == "postgres":
+        import psycopg
+        from psycopg.rows import dict_row
+
+        conn = await psycopg.AsyncConnection.connect(DATABASE_URL)
+        conn.row_factory = dict_row
+        return DB(conn)
+    import aiosqlite
+
+    conn = await aiosqlite.connect(DB_PATH)
+    conn.row_factory = aiosqlite.Row
+    await conn.execute("PRAGMA journal_mode=WAL")
+    return DB(conn)
+
+
+def _ddl_statements() -> list[str]:
+    history_id = (
+        "id BIGSERIAL PRIMARY KEY"
+        if DB_TYPE == "postgres"
+        else "id INTEGER PRIMARY KEY AUTOINCREMENT"
+    )
+    return [
+        """CREATE TABLE IF NOT EXISTS events (
+            id TEXT PRIMARY KEY,
+            category TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            lat REAL,
+            lng REAL,
+            place TEXT,
+            magnitude REAL,
+            event_timestamp TEXT NOT NULL,
+            source TEXT NOT NULL,
+            source_url TEXT,
+            severity TEXT,
+            ingested_at TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""",
+        """CREATE TABLE IF NOT EXISTS crypto (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            current_price REAL NOT NULL,
+            market_cap REAL,
+            price_change_24h REAL,
+            last_updated TEXT NOT NULL,
+            ingested_at TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""",
+        """CREATE TABLE IF NOT EXISTS forex (
+            base_currency TEXT PRIMARY KEY,
+            rates TEXT NOT NULL,
+            date TEXT NOT NULL,
+            last_updated TEXT NOT NULL,
+            ingested_at TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_events_category ON events(category)",
+        "CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(event_timestamp)",
+        "CREATE INDEX IF NOT EXISTS idx_events_ingested ON events(ingested_at)",
+        """CREATE TABLE IF NOT EXISTS webcams (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            url TEXT NOT NULL,
+            platform TEXT NOT NULL,
+            country TEXT,
+            province TEXT,
+            city TEXT,
+            lat REAL,
+            lng REAL,
+            thumbnail_url TEXT,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            last_checked TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_webcams_country ON webcams(country)",
+        "CREATE INDEX IF NOT EXISTS idx_webcams_active ON webcams(is_active)",
+        """CREATE TABLE IF NOT EXISTS news (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            url TEXT NOT NULL,
+            image_url TEXT,
+            source_name TEXT NOT NULL,
+            source_country TEXT,
+            published_at TEXT NOT NULL,
+            category TEXT,
+            translated_title TEXT,
+            ingested_at TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_news_country ON news(source_country)",
+        "CREATE INDEX IF NOT EXISTS idx_news_published ON news(published_at)",
+        """CREATE TABLE IF NOT EXISTS radio_stations (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            frequency TEXT,
+            description TEXT,
+            url TEXT,
+            stream_url TEXT,
+            country TEXT,
+            country_code TEXT,
+            state TEXT,
+            language TEXT,
+            tags TEXT,
+            codec TEXT,
+            bitrate INTEGER,
+            geo_lat REAL,
+            geo_lng REAL,
+            homepage TEXT,
+            favicon TEXT,
+            is_online INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_radio_country ON radio_stations(country)",
+        "CREATE INDEX IF NOT EXISTS idx_radio_name ON radio_stations(name)",
+        "CREATE INDEX IF NOT EXISTS idx_radio_online ON radio_stations(is_online)",
+        """CREATE TABLE IF NOT EXISTS fires (
+            id TEXT PRIMARY KEY,
+            lat REAL NOT NULL,
+            lng REAL NOT NULL,
+            brightness REAL,
+            frp REAL,
+            confidence TEXT,
+            satellite TEXT,
+            acq_date TEXT,
+            acq_time TEXT,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            started_at TEXT NOT NULL,
+            ended_at TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_fires_active ON fires(is_active)",
+        "CREATE INDEX IF NOT EXISTS idx_fires_started ON fires(started_at)",
+        """CREATE TABLE IF NOT EXISTS flights (
+            id TEXT PRIMARY KEY,
+            icao24 TEXT,
+            callsign TEXT,
+            origin_country TEXT,
+            lat REAL NOT NULL,
+            lng REAL NOT NULL,
+            altitude REAL,
+            speed REAL,
+            heading REAL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            first_seen TEXT NOT NULL,
+            last_seen TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_flights_active ON flights(is_active)",
+        "CREATE INDEX IF NOT EXISTS idx_flights_lastseen ON flights(last_seen)",
+        """CREATE TABLE IF NOT EXISTS weather_current (
+            city TEXT PRIMARY KEY,
+            country TEXT NOT NULL,
+            lat REAL NOT NULL,
+            lng REAL NOT NULL,
+            temperature REAL,
+            apparent_temperature REAL,
+            humidity REAL,
+            weather_code INTEGER,
+            weather_description TEXT,
+            weather_icon TEXT,
+            wind_speed REAL,
+            wind_gusts REAL,
+            pressure REAL,
+            severe INTEGER NOT NULL DEFAULT 0,
+            forecast TEXT,
+            recorded_at TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""",
+        f"""CREATE TABLE IF NOT EXISTS weather_history (
+            {history_id},
+            city TEXT NOT NULL,
+            country TEXT NOT NULL,
+            lat REAL NOT NULL,
+            lng REAL NOT NULL,
+            temperature REAL,
+            apparent_temperature REAL,
+            humidity REAL,
+            weather_code INTEGER,
+            weather_description TEXT,
+            wind_speed REAL,
+            wind_gusts REAL,
+            pressure REAL,
+            recorded_at TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""",
+        "CREATE INDEX IF NOT EXISTS idx_weather_city ON weather_history(city)",
+        "CREATE INDEX IF NOT EXISTS idx_weather_recorded ON weather_history(recorded_at)",
+    ]
 
 
 async def init_db():
     db = await get_db()
     try:
-        await db.executescript("""
-            CREATE TABLE IF NOT EXISTS events (
-                id TEXT PRIMARY KEY,
-                category TEXT NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT,
-                lat REAL,
-                lng REAL,
-                place TEXT,
-                magnitude REAL,
-                event_timestamp TEXT NOT NULL,
-                source TEXT NOT NULL,
-                source_url TEXT,
-                severity TEXT,
-                ingested_at TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE TABLE IF NOT EXISTS crypto (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                symbol TEXT NOT NULL,
-                current_price REAL NOT NULL,
-                market_cap REAL,
-                price_change_24h REAL,
-                last_updated TEXT NOT NULL,
-                ingested_at TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE TABLE IF NOT EXISTS forex (
-                base_currency TEXT PRIMARY KEY,
-                rates TEXT NOT NULL,
-                date TEXT NOT NULL,
-                last_updated TEXT NOT NULL,
-                ingested_at TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_events_category ON events(category);
-            CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(event_timestamp);
-            CREATE INDEX IF NOT EXISTS idx_events_ingested ON events(ingested_at);
-
-            CREATE TABLE IF NOT EXISTS webcams (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                url TEXT NOT NULL,
-                platform TEXT NOT NULL,
-                country TEXT,
-                province TEXT,
-                city TEXT,
-                lat REAL,
-                lng REAL,
-                thumbnail_url TEXT,
-                is_active INTEGER NOT NULL DEFAULT 1,
-                last_checked TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_webcams_country ON webcams(country);
-            CREATE INDEX IF NOT EXISTS idx_webcams_active ON webcams(is_active);
-
-            CREATE TABLE IF NOT EXISTS news (
-                id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
-                description TEXT,
-                url TEXT NOT NULL,
-                image_url TEXT,
-                source_name TEXT NOT NULL,
-                source_country TEXT,
-                published_at TEXT NOT NULL,
-                category TEXT,
-                translated_title TEXT,
-                ingested_at TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_news_country ON news(source_country);
-            CREATE INDEX IF NOT EXISTS idx_news_published ON news(published_at);
-
-            CREATE TABLE IF NOT EXISTS radio_stations (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                frequency TEXT,
-                description TEXT,
-                url TEXT,
-                stream_url TEXT,
-                country TEXT,
-                country_code TEXT,
-                state TEXT,
-                language TEXT,
-                tags TEXT,
-                codec TEXT,
-                bitrate INTEGER,
-                geo_lat REAL,
-                geo_lng REAL,
-                homepage TEXT,
-                favicon TEXT,
-                is_online INTEGER NOT NULL DEFAULT 1,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_radio_country ON radio_stations(country);
-            CREATE INDEX IF NOT EXISTS idx_radio_name ON radio_stations(name);
-            CREATE INDEX IF NOT EXISTS idx_radio_online ON radio_stations(is_online);
-
-            CREATE TABLE IF NOT EXISTS fires (
-                id TEXT PRIMARY KEY,
-                lat REAL NOT NULL,
-                lng REAL NOT NULL,
-                brightness REAL,
-                frp REAL,
-                confidence TEXT,
-                satellite TEXT,
-                acq_date TEXT,
-                acq_time TEXT,
-                is_active INTEGER NOT NULL DEFAULT 1,
-                started_at TEXT NOT NULL,
-                ended_at TEXT,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_fires_active ON fires(is_active);
-            CREATE INDEX IF NOT EXISTS idx_fires_started ON fires(started_at);
-
-            CREATE TABLE IF NOT EXISTS flights (
-                id TEXT PRIMARY KEY,
-                icao24 TEXT,
-                callsign TEXT,
-                origin_country TEXT,
-                lat REAL NOT NULL,
-                lng REAL NOT NULL,
-                altitude REAL,
-                speed REAL,
-                heading REAL,
-                is_active INTEGER NOT NULL DEFAULT 1,
-                first_seen TEXT NOT NULL,
-                last_seen TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_flights_active ON flights(is_active);
-            CREATE INDEX IF NOT EXISTS idx_flights_lastseen ON flights(last_seen);
-
-            CREATE TABLE IF NOT EXISTS weather_current (
-                city TEXT PRIMARY KEY,
-                country TEXT NOT NULL,
-                lat REAL NOT NULL,
-                lng REAL NOT NULL,
-                temperature REAL,
-                apparent_temperature REAL,
-                humidity REAL,
-                weather_code INTEGER,
-                weather_description TEXT,
-                weather_icon TEXT,
-                wind_speed REAL,
-                wind_gusts REAL,
-                pressure REAL,
-                severe INTEGER NOT NULL DEFAULT 0,
-                forecast TEXT,
-                recorded_at TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE TABLE IF NOT EXISTS weather_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                city TEXT NOT NULL,
-                country TEXT NOT NULL,
-                lat REAL NOT NULL,
-                lng REAL NOT NULL,
-                temperature REAL,
-                apparent_temperature REAL,
-                humidity REAL,
-                weather_code INTEGER,
-                weather_description TEXT,
-                wind_speed REAL,
-                wind_gusts REAL,
-                pressure REAL,
-                recorded_at TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_weather_city ON weather_history(city);
-            CREATE INDEX IF NOT EXISTS idx_weather_recorded ON weather_history(recorded_at);
-        """)
+        for stmt in _ddl_statements():
+            await db.execute(stmt)
         await db.commit()
 
         now_literal = datetime.now(timezone.utc).isoformat()
@@ -552,8 +599,9 @@ async def get_news(
             parts.append("AND source_country = ?")
             params.append(country)
         if hours:
-            parts.append("AND published_at >= datetime('now', ?)")
-            params.append(f"-{hours} hours")
+            cond, extra = _time_since_sql("published_at", hours)
+            parts.append("AND " + cond)
+            params.extend(extra)
         parts.append("ORDER BY published_at DESC LIMIT ?")
         params.append(limit)
         cursor = await db.execute(" ".join(parts), params)
@@ -593,10 +641,8 @@ async def get_news_countries() -> list[str]:
 async def clean_old_news(hours: int = 48):
     db = await get_db()
     try:
-        await db.execute(
-            "DELETE FROM news WHERE ingested_at < datetime('now', ?)",
-            (f"-{hours} hours",),
-        )
+        cond, params = _time_before_sql("ingested_at", hours)
+        await db.execute(f"DELETE FROM news WHERE {cond}", tuple(params))
         await db.commit()
     finally:
         await db.close()
@@ -605,11 +651,8 @@ async def clean_old_news(hours: int = 48):
 async def clean_old_events(hours: int = 24):
     db = await get_db()
     try:
-        cutoff = datetime.now(timezone.utc).isoformat()
-        await db.execute(
-            "DELETE FROM events WHERE ingested_at < datetime('now', ?)",
-            (f"-{hours} hours",),
-        )
+        cond, params = _time_before_sql("ingested_at", hours)
+        await db.execute(f"DELETE FROM events WHERE {cond}", tuple(params))
         await db.commit()
     finally:
         await db.close()
@@ -624,8 +667,9 @@ async def get_events_from_db(category: str | None = None, hours: int | None = No
             parts.append("AND category = ?")
             params.append(category)
         if hours:
-            parts.append("AND event_timestamp >= datetime('now', ?)")
-            params.append(f"-{hours} hours")
+            cond, extra = _time_since_sql("event_timestamp", hours)
+            parts.append("AND " + cond)
+            params.extend(extra)
         parts.append("ORDER BY event_timestamp DESC LIMIT 100")
         cursor = await db.execute(" ".join(parts), params)
         rows = await cursor.fetchall()

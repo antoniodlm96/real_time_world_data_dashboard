@@ -1,17 +1,27 @@
 import httpx
 
+from backend.app.cache import cache
 from backend.app.config import settings
 from backend.app.models import UnifiedEvent
 
 
 async def fetch_earthquakes() -> list[UnifiedEvent]:
+    items = await cache.get_or_fetch(
+        "usgs:earthquakes",
+        settings.cache_ttl_earthquake,
+        _fetch_earthquakes_raw,
+    )
+    return [UnifiedEvent.model_validate(item) for item in items]
+
+
+async def _fetch_earthquakes_raw() -> list[dict]:
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.get(settings.usgs_url)
             resp.raise_for_status()
             data = resp.json()
     except (httpx.HTTPError, httpx.TimeoutException, ValueError) as e:
-        return _fallback_earthquakes(e)
+        return [e.model_dump() for e in _fallback_earthquakes(e)]
 
     events = []
     for feature in data.get("features", []):
@@ -37,7 +47,7 @@ async def fetch_earthquakes() -> list[UnifiedEvent]:
                 source_url=props.get("url"),
                 severity=_mag_severity(props.get("mag")),
             )
-            events.append(event)
+            events.append(event.model_dump())
         except (KeyError, IndexError, TypeError):
             continue
 

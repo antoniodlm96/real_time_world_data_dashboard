@@ -25,7 +25,7 @@ class Cache:
             await self._client.close()
             self._client = None
 
-    async def get(self, key: str) -> dict | None:
+    async def get(self, key: str):
         if not self._client:
             return None
         data = await self._client.get(key)
@@ -36,24 +36,19 @@ class Cache:
         except (json.JSONDecodeError, TypeError):
             return None
 
-    async def set(self, key: str, value: dict, ttl: int) -> None:
+    async def set(self, key: str, value, ttl: int) -> None:
         if not self._client:
             return
         await self._client.setex(key, ttl, json.dumps(value, default=str))
 
-    async def get_or_fetch(
-        self, key: str, ttl: int, fetcher
-    ) -> dict:
+    async def get_or_fetch(self, key: str, ttl: int, fetcher):
         cached = await self.get(key)
         if cached is not None:
             return cached
         data = await fetcher()
         if data is not None:
             await self.set(key, data, ttl)
-        return data or self._fallback(key)
-
-    def _fallback(self, key: str) -> dict:
-        return {"data": [], "source": "fallback", "fallback": True}
+        return data
 
 
 cache = Cache()

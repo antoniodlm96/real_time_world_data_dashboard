@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.config import settings
 from backend.app.database import init_db, seed_radio_frequencies, seed_webcams
+from backend.app.cache import cache
 from backend.app.ingest import ingestion_loop
 from backend.app.sources.bluesky import bluesky_loop
 from backend.app.routers import events, markets, webcams, news, radio, flights, fires, commodities, weather, status
@@ -25,11 +26,13 @@ async def lifespan(app: FastAPI):
     await init_db()
     await seed_webcams(SEED_WEBCAMS)
     await seed_radio_frequencies(RADIO_FREQUENCIES)
+    await cache.connect()
     ingest_task = asyncio.create_task(ingestion_loop())
     bluesky_task = asyncio.create_task(bluesky_loop())
     yield
     ingest_task.cancel()
     bluesky_task.cancel()
+    await cache.disconnect()
     try:
         await ingest_task
     except asyncio.CancelledError:
