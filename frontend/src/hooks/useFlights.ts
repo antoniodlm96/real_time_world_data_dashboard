@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Flight } from '../types'
+import { API_BASE } from '../api'
 
 const POLL_INTERVAL = 30000
 
@@ -11,7 +12,7 @@ export function useFlights() {
 
   const fetchFlights = useCallback(async () => {
     try {
-      const res = await fetch('/api/flights')
+      const res = await fetch(`${API_BASE}/flights`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setFlights(data.flights)

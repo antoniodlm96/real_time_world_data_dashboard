@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { NewsArticle } from '../types'
-
-const API_BASE = '/api'
+import { API_BASE } from '../api'
 
 export function useNews(hours: number) {
   const [news, setNews] = useState<NewsArticle[]>([])

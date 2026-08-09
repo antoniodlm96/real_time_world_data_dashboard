@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { CryptoEntry, ForexData } from '../types'
+import { API_BASE } from '../api'
 
 const REFRESH_INTERVAL = 10000
-const API_BASE = '/api'
 
 export function useMarkets() {
   const [crypto, setCrypto] = useState<CryptoEntry[]>([])

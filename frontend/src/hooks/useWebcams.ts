@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Webcam } from '../types'
-
-const API_BASE = '/api'
+import { API_BASE } from '../api'
 
 export function useWebcams() {
   const [webcams, setWebcams] = useState<Webcam[]>([])

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { UnifiedEvent, LayerKey } from '../types'
+import { API_BASE } from '../api'
 
 const REFRESH_INTERVAL = 10000
-const API_BASE = '/api'
 
 export function useEvents(hours: number) {
   const [events, setEvents] = useState<Record<LayerKey, UnifiedEvent[]>>({

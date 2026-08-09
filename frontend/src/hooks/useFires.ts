@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Fire } from '../types'
+import { API_BASE } from '../api'
 
 const POLL_INTERVAL = 60000
 
@@ -11,7 +12,7 @@ export function useFires() {
 
   const fetchFires = useCallback(async () => {
     try {
-      const res = await fetch('/api/fires')
+      const res = await fetch(`${API_BASE}/fires`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setFires(data.fires)

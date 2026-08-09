@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { RadioStation } from '../types'
-
-const API_BASE = '/api'
+import { API_BASE } from '../api'
 
 export function useRadio() {
   const [stations, setStations] = useState<RadioStation[]>([])

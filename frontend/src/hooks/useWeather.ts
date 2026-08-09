@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { WeatherEntry } from '../types'
+import { API_BASE } from '../api'
 
 const POLL_INTERVAL = 300000
 
@@ -10,7 +11,7 @@ export function useWeather() {
 
   const fetchWeather = useCallback(async () => {
     try {
-      const res = await fetch('/api/weather')
+      const res = await fetch(`${API_BASE}/weather`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setWeather(data.weather ?? [])

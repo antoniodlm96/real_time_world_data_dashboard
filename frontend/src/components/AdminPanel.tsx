@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { API_BASE } from '../api'
 
 interface Source {
   name: string
@@ -129,7 +130,7 @@ function LogViewer() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const res = await fetch(`/api/status/logs?category=${tab}&limit=200`)
+        const res = await fetch(`${API_BASE}/status/logs?category=${tab}&limit=200`)
         if (!res.ok) return
         const data = await res.json()
         setLogs(data.logs || [])
@@ -203,7 +204,7 @@ export default function AdminPanel() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/status')
+      const res = await fetch(`${API_BASE}/status`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
       setData(json)

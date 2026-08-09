@@ -7,6 +7,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/dashboard/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        rewrite: path => path.replace(/^\/dashboard/, ''),
+      },
       '/api': {
         target: 'http://localhost:8000',
         changeOrigin: true,

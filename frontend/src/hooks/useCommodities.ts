@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { CommodityEntry } from '../types'
+import { API_BASE } from '../api'
 
 const POLL_INTERVAL = 60000
 
@@ -10,7 +11,7 @@ export function useCommodities() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const res = await fetch('/api/markets/commodities')
+      const res = await fetch(`${API_BASE}/markets/commodities`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
       setCommodities(data.commodities ?? [])
