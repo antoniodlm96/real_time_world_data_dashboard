@@ -36,7 +36,7 @@ Guía completa del entorno contenedorizado del **Real Time World Data Dashboard*
 
 ### Campos clave del `docker-compose.yml`
 
-- **`postgres`** crea automáticamente el usuario/BD `dashboard` / `dashboard` y expone un healthcheck con `pg_isready`.
+- **`postgres`** crea automáticamente el usuario/BD `dashboard` / `dashboard`, con la contraseña **`POSTGRES_PASSWORD`** leída del `.env` (obligatoria; el compose falla si no está definida). Expone un healthcheck con `pg_isready`.
 - **`redis`** incluye healthcheck con `redis-cli ping`.
 - **`backend`** arranca solo cuando `postgres` y `redis` están sanos (`service_healthy`). Recibe las variables `DASHBOARD_DB_TYPE=postgres` y `DASHBOARD_DATABASE_URL` apuntando al contenedor `postgres`, no a `localhost`.
 - **`frontend`** se construye en dos etapas (build de Node 24 → imagen final nginx) y copia `nginx.conf`, que enruta `/api/*` hacia `backend:8000`.
@@ -60,7 +60,8 @@ location /api/ {
 
 - **Docker Engine** ≥ 24 (o Docker Desktop en macOS/Windows).
 - **Docker Compose v2** (sintaxis `docker compose`, no `docker-compose`). El bloque `env_file: { required: false }` necesita Compose **v2.24+**.
-- Puertos libres en el host: `3000`, `5432`, `6379`, `8000`.
+- `POSTGRES_PASSWORD` definido en el `.env` (el compose lo exige vía `${POSTGRES_PASSWORD:?…}`).
+- Puertos libres en el host: `3000`, `8000`. `5432`/`6379` quedan internos solo a la red Docker.
 - Recomendado: ~2 GB de RAM libres para el stack completo.
 
 Comprueba tu instalación:
@@ -81,22 +82,24 @@ git clone <url_del_repositorio>
 cd real_time_world_data_dashboard
 ```
 
-### 2) Configura tus claves (opcional pero recomendado)
+### 2) Configura tu `.env` (obligatoria POSTGRES_PASSWORD; opcional las claves)
 
-Crea el fichero `.env` en la raíz (ya está en `.gitignore`, no se sube al repo):
+Crea el fichero `.env` en la raíz (ya está en `.gitignore`, no se sube al repo). Parte de la plantilla `.env.example`:
 
 ```bash
 cp .env.example .env   # o crea .env a mano con:
 ```
 
 ```env
+POSTGRES_PASSWORD=una_password_segura
 DASHBOARD_GROQ_API_KEY=tu_clave_de_groq
 DASHBOARD_FIRMS_API_KEY=tu_clave_de_nasa_firms
 ```
 
+- **`POSTGRES_PASSWORD`** es **obligatoria**: la usa PostgreSQL para crear el usuario `dashboard` y también la URL `DASHBOARD_DATABASE_URL` del backend. Sin ella, `docker compose up` aborta con error.
 - **Groq** activa la clasificación/por traducción automática de noticias y la generación de eventos del mapa.
 - **NASA FIRMS** activa el nivel de incendios en el mapa.
-- **Sin `.env`**: el backend arranca igualmente, solo se desactivan esos extras (el bloque `required: false` lo permite).
+- **Sin las claves de API**: el backend arranca igualmente, solo se desactivan esos extras (el bloque `required: false` lo permite).
 
 > Ojo: el `./backend/app/config.py` prefiere `DASHBOARD_` como prefijo para toda variable de entorno.
 
@@ -178,7 +181,8 @@ Todas con prefijo `DASHBOARD_`. Las define `backend/app/config.py`.
 | Variable | Por defecto (Docker) | Uso |
 |----------|----------------------|-----|
 | `DASHBOARD_DB_TYPE` | `postgres` | Motor de BD (`postgres` o `sqlite`) |
-| `DASHBOARD_DATABASE_URL` | `postgresql://dashboard:dashboard@postgres:5432/dashboard` | Conexión a PostgreSQL |
+| `POSTGRES_PASSWORD` | *(del `.env`, obligatoria)* | Contraseña de PostgreSQL (usuario `dashboard` y URL del backend) |
+| `DASHBOARD_DATABASE_URL` | construida con `POSTGRES_PASSWORD` | Conexión a PostgreSQL |
 | `DASHBOARD_REDIS_URL` | `redis://redis:6379/0` | Conexión a Redis |
 | `DASHBOARD_CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | Orígenes permitidos en CORS |
 | `DASHBOARD_GROQ_API_KEY` | *(del `.env`)* | Clasificación de noticias (Groq) |
@@ -209,14 +213,18 @@ docker run --rm -v pg_data -v ... # (ver copias de seguridad abajo)
 
 ## 8. Copia de seguridad de la base de datos
 
+Usa la contraseña del `.env` (`POSTGRES_PASSWORD`):
+
 ```bash
 # Volcado (backup)
-docker compose exec postgres pg_dump -U dashboard dashboard > backup.sql
+docker compose exec postgres pg_dump "postgresql://dashboard:${POSTGRES_PASSWORD}@localhost:5432/dashboard" > backup.sql
 
 # Restauración (borra y recrea)
-docker compose exec -T postgres psql -U dashboard < backup.sql
-docker compose exec -T postgres psql -U dashboard -c "SELECT count(*) FROM events;"
+docker compose exec -T postgres psql "postgresql://dashboard:${POSTGRES_PASSWORD}@localhost:5432/dashboard" < backup.sql
+docker compose exec -T postgres psql "postgresql://dashboard:${POSTGRES_PASSWORD}@localhost:5432/dashboard" -c "SELECT count(*) FROM events;"
 ```
+
+> `POSTGRES_PASSWORD` se inyecta desde el `.env` si usas `set -a && . ./.env` antes, o define la variable explícitamente.
 
 ---
 
